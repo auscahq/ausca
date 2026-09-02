@@ -1,0 +1,17 @@
+{
+  "name": "@ausca-internal/payable-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@x402/evm": "^2.24.0",
+    "@x402/fetch": "^2.24.0"
+  },
+  "peerDependencies": {
+    "viem": ">=2"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./testkit": "./src/testkit.ts"
+  }
+}
