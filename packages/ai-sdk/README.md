@@ -1,4 +1,4 @@
-# ausca-ai-sdk
+# @ausca/ai-sdk
 
 Vercel AI SDK tools that consume paid HTTP APIs by answering `402 Payment
 Required` with an [x402](https://www.x402.org) v2 payment, instead of carrying
@@ -12,14 +12,14 @@ this tool exists for.
 ## Install
 
 ```bash
-npm install ausca-ai-sdk ai viem zod
+npm install @ausca/ai-sdk ai viem zod
 ```
 
 ## Use
 
 ```ts
 import { generateText } from "ai";
-import { x402Tool } from "ausca-ai-sdk";
+import { x402Tool } from "@ausca/ai-sdk";
 import { privateKeyToAccount } from "viem/accounts";
 import { z } from "zod";
 

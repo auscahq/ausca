@@ -1,0 +1,58 @@
+{
+  "name": "@ausca/sdk",
+  "version": "0.1.0",
+  "description": "Typed client for Ausca metered agent infrastructure services: catalog-bound invocations paid per call under a hard USD cap, through pluggable payment authorities (x402 v2 today), with receipt-backed results.",
+  "license": "MIT",
+  "homepage": "https://ausca.com",
+  "type": "module",
+  "keywords": [
+    "ausca",
+    "x402",
+    "agents",
+    "payments",
+    "sdk"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./testkit": {
+      "types": "./dist/testkit.d.ts",
+      "import": "./dist/testkit.js",
+      "require": "./dist/testkit.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts src/testkit.ts --format esm,cjs --dts --clean",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@x402/evm": "^2.24.0",
+    "@x402/fetch": "^2.24.0"
+  },
+  "peerDependencies": {
+    "viem": ">=2"
+  },
+  "devDependencies": {
+    "@ausca-internal/payable": "*",
+    "@types/node": "^26.4.1",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.0",
+    "viem": "^2.44.0",
+    "vitest": "^4.0.0"
+  },
+  "tsup": {
+    "noExternal": [
+      "@ausca-internal/payable"
+    ]
+  }
+}

@@ -112,7 +112,7 @@ def resource():
 
 
 def test_invoke_pays_within_cap_and_returns_settlement_proof(resource: str) -> None:
-    client = AuscaClient(private_key=PRIVATE_KEY, max_payment_usd=0.25, origin=resource)
+    client = AuscaClient.with_local_key(private_key=PRIVATE_KEY, max_payment_usd=0.25, origin=resource)
     outcome = client.invoke("document.ocr", {"artifact": {"ref": "runx:artifact:x"}})
     assert outcome.result["status"] == "ok"
     envelope = outcome.result["echo"]
@@ -125,7 +125,7 @@ def test_invoke_pays_within_cap_and_returns_settlement_proof(resource: str) -> N
 
 
 def test_idempotency_key_is_deterministic(resource: str) -> None:
-    client = AuscaClient(private_key=PRIVATE_KEY, max_payment_usd=0.25, origin=resource)
+    client = AuscaClient.with_local_key(private_key=PRIVATE_KEY, max_payment_usd=0.25, origin=resource)
     offer = client.offer("document.ocr")
     first = client.envelope(offer, {"a": 1})["idempotency_key"]
     second = client.envelope(offer, {"a": 1})["idempotency_key"]
@@ -136,7 +136,7 @@ def test_idempotency_key_is_deterministic(resource: str) -> None:
 
 def test_refuses_to_pay_above_the_cap_before_signing(resource: str) -> None:
     _Resource.amount_atomic = "5000000"
-    client = AuscaClient(private_key=PRIVATE_KEY, max_payment_usd=0.25, origin=resource)
+    client = AuscaClient.with_local_key(private_key=PRIVATE_KEY, max_payment_usd=0.25, origin=resource)
     with pytest.raises(Exception):
         client.invoke("document.ocr", {"artifact": {"ref": "runx:artifact:x"}})
     assert _Resource.seen.get("signed") is None

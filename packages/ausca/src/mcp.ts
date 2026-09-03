@@ -1,0 +1,201 @@
+import { createRequire } from "node:module";
+
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+} from "@modelcontextprotocol/sdk/types.js";
+
+import type { AuscaClient, Price } from "@ausca/sdk";
+
+import {
+  artifactsFromEnvironment,
+  clientFromEnvironment,
+  paymentFromEnvironment,
+  type Environment,
+} from "./env.js";
+
+// The local MCP server: the half of the MCP story the hosted transport
+// structurally cannot do, because payment signs where the key lives. Tools
+// are derived from the live catalog at startup, names taken from the
+// catalog's own MCP projection, input schemas fetched from the published
+// schema paths. Nothing here is hand-listed and nothing here pays outside
+// the configured authority.
+
+const PERMISSIVE_INPUT = { type: "object" } as const;
+
+interface DerivedTool {
+  readonly name: string;
+  readonly description: string;
+  readonly inputSchema: Record<string, unknown>;
+  readonly offerId?: string;
+}
+
+function priceSummary(price: Price): string {
+  const usd = (minor: number) => `$${(minor / 100).toFixed(2)}`;
+  if (price.options?.length) {
+    const options = price.options
+      .map((option) => `${usd(option.amountMinor)} for ${JSON.stringify(option.value)}`)
+      .join(", ");
+    return `${options} (${price.inputField})`;
+  }
+  if (price.minimumMinor === price.maximumMinor) {
+    return `${usd(price.minimumMinor)} per call`;
+  }
+  return `${usd(price.minimumMinor)} to ${usd(price.maximumMinor)} per call`;
+}
+
+async function deriveTools(
+  client: AuscaClient,
+  origin: string,
+  options: { paying: boolean; committing: boolean },
+): Promise<DerivedTool[]> {
+  const { offers, document } = await client.catalog();
+  const operations = ((document.contract as Record<string, unknown> | undefined)?.operations ??
+    []) as { method: string; path: string; operation_id: string }[];
+  const projected = ((document.mcp as Record<string, unknown> | undefined)?.tools ?? []) as {
+    name: string;
+    operation_id: string;
+  }[];
+
+  const tools: DerivedTool[] = [];
+  for (const entry of offers) {
+    const offer = await client.offer(entry.offer_id as string);
+    const operation = operations.find(
+      (candidate) => candidate.method === offer.routeMethod && candidate.path === offer.routePath,
+    );
+    const name =
+      projected.find((tool) => tool.operation_id === operation?.operation_id)?.name ??
+      `ausca_${offer.offerId.replace(/[^a-z0-9]+/gi, "_")}`;
+    let inputSchema: Record<string, unknown> = { ...PERMISSIVE_INPUT };
+    try {
+      const response = await fetch(`${origin}${offer.inputSchemaPath}`);
+      if (response.ok) {
+        inputSchema = (await response.json()) as Record<string, unknown>;
+      }
+    } catch {
+      // The service owns validation; a permissive schema defers to it.
+    }
+    const paymentNote = options.paying
+      ? "Paid automatically within the configured AUSCA_MAX_PAYMENT_USD cap."
+      : "Requires AUSCA_PRIVATE_KEY and AUSCA_MAX_PAYMENT_USD in this server's environment.";
+    tools.push({
+      name,
+      offerId: offer.offerId,
+      inputSchema,
+      description: `${offer.description} Price: ${priceSummary(offer.price)}. ${paymentNote}`,
+    });
+  }
+
+  tools.push({
+    name: "ausca_catalog",
+    description: "List the active Ausca offers with prices, routes, and revisions.",
+    inputSchema: { type: "object", additionalProperties: false },
+  });
+  tools.push({
+    name: "ausca_price",
+    description: "Read the published price policy of one Ausca offer.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["offer_id"],
+      properties: { offer_id: { type: "string" } },
+    },
+  });
+  if (options.committing) {
+    tools.push({
+      name: "ausca_commit_artifact",
+      description:
+        "Commit input bytes as an immutable artifact for document and media offers; returns the commitment the offer input carries.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["data_base64", "media_type"],
+        properties: {
+          data_base64: { type: "string" },
+          media_type: { type: "string" },
+        },
+      },
+    });
+  }
+  return tools;
+}
+
+function textResult(value: unknown, isError = false): {
+  content: { type: "text"; text: string }[];
+  isError?: boolean;
+} {
+  return {
+    content: [{ type: "text", text: JSON.stringify(value, null, 2) }],
+    ...(isError ? { isError: true } : {}),
+  };
+}
+
+export async function buildMcpServer(env: Environment): Promise<Server> {
+  const client = clientFromEnvironment(env);
+  const paying = paymentFromEnvironment(env) !== null;
+  const artifacts = artifactsFromEnvironment(env);
+  const origin = env.AUSCA_ORIGIN ?? "https://ausca.com";
+  const tools = await deriveTools(client, origin, {
+    paying,
+    committing: artifacts !== undefined,
+  });
+  const version = createRequire(import.meta.url)("../package.json").version as string;
+
+  const server = new Server({ name: "ausca", version }, { capabilities: { tools: {} } });
+
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })),
+  }));
+
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const tool = tools.find((candidate) => candidate.name === request.params.name);
+    const args = (request.params.arguments ?? {}) as Record<string, unknown>;
+    try {
+      if (!tool) {
+        return textResult({ error: `unknown tool ${request.params.name}` }, true);
+      }
+      if (tool.name === "ausca_catalog") {
+        const { offers } = await client.catalog();
+        return textResult(
+          offers.map((offer) => ({
+            offer_id: offer.offer_id,
+            title: offer.title,
+            route: offer.route,
+            price: offer.price,
+            revision: offer.revision,
+          })),
+        );
+      }
+      if (tool.name === "ausca_price") {
+        return textResult(await client.price(args.offer_id as string));
+      }
+      if (tool.name === "ausca_commit_artifact") {
+        const bytes = Uint8Array.from(Buffer.from(args.data_base64 as string, "base64"));
+        return textResult(await client.commit(bytes, args.media_type as string));
+      }
+      if (!paying) {
+        return textResult(
+          {
+            error:
+              "this server cannot pay: set AUSCA_PRIVATE_KEY and AUSCA_MAX_PAYMENT_USD in its environment",
+          },
+          true,
+        );
+      }
+      return textResult(await client.invoke(tool.offerId as string, args));
+    } catch (error) {
+      return textResult({ error: error instanceof Error ? error.message : String(error) }, true);
+    }
+  });
+
+  return server;
+}
+
+export async function serveMcp(env: Environment): Promise<void> {
+  const server = await buildMcpServer(env);
+  await server.connect(new StdioServerTransport());
+  // The transport owns the process lifetime from here.
+  await new Promise(() => {});
+}

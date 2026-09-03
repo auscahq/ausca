@@ -1,0 +1,172 @@
+import { createServer } from "node:http";
+
+import { privateKeyToAccount } from "viem/accounts";
+import { describe, expect, it } from "vitest";
+
+import { address } from "@ausca-internal/payable/testkit";
+import { ArtifactError, runxArtifactStore } from "./artifacts.js";
+import { AuscaClient, OfferNotActiveError } from "./client.js";
+import { inertAuthority, localKeyAuthority, type PaymentAuthority } from "./payment.js";
+import { startAuscaService } from "./testkit.js";
+
+const account = privateKeyToAccount(`0x${"7".repeat(64)}`);
+
+describe("AuscaClient", () => {
+  it("resolves catalog, offer, and price without any wallet", async () => {
+    const service = await startAuscaService();
+    try {
+      const client = new AuscaClient({ payment: inertAuthority(), origin: service.origin });
+      const offer = await client.offer("echo.test");
+      expect(offer.routePath).toBe("/v1/echo");
+      expect(offer.revision).toBe("echo-r1");
+      expect(offer.inputSchemaPath).toBe("/schemas/offers/echo.input.schema.json");
+      const price = await client.price("echo.test");
+      expect(price).toMatchObject({ currency: "USD", model: "fixed", minimumMinor: 1 });
+      await expect(client.offer("missing.offer")).rejects.toThrow(OfferNotActiveError);
+    } finally {
+      await service.close();
+    }
+  });
+
+  it("pays one invocation within the cap and returns the settlement proof", async () => {
+    const service = await startAuscaService({ amountAtomic: "10000" });
+    try {
+      const client = AuscaClient.withLocalKey({
+        account,
+        maxPaymentUsd: 0.05,
+        origin: service.origin,
+      });
+      const outcome = await client.invoke("echo.test", { message: "hello" });
+      expect((outcome.result as { result: { echo: { message: string } } }).result.echo.message).toBe("hello");
+      expect(outcome.payment?.success).toBe(true);
+      expect(service.requests).toEqual({ unsigned: 1, signed: 1 });
+      const state = await client.invocation("inv_echo_0001");
+      expect(state.state).toBe("completed");
+    } finally {
+      await service.close();
+    }
+  });
+
+  it("refuses to pay above the cap before anything is signed", async () => {
+    const service = await startAuscaService({ amountAtomic: "5000000" });
+    try {
+      const client = new AuscaClient({
+        payment: localKeyAuthority({ account, maxPaymentUsd: 0.05 }),
+        origin: service.origin,
+      });
+      await expect(client.invoke("echo.test", { message: "hello" })).rejects.toThrow();
+      expect(service.requests.signed).toBe(0);
+    } finally {
+      await service.close();
+    }
+  });
+
+  it("works through any payment authority, not only local x402 keys", async () => {
+    const service = await startAuscaService();
+    try {
+      // A stand-in for a delegated rail: on a 402 it retries the same bytes
+      // with its own credential header instead of signing locally.
+      const delegated: PaymentAuthority = {
+        rails: ["test-delegated"],
+        wrapFetch: (base) => async (input, init) => {
+          const first = await base(input, init);
+          if (first.status !== 402) {
+            return first;
+          }
+          return base(input, {
+            ...init,
+            headers: { ...(init?.headers as Record<string, string>), "PAYMENT-SIGNATURE": "delegated" },
+          });
+        },
+        receipt: () => ({ success: true, transaction: "delegated", network: "test", payer: "test" }),
+      };
+      const client = new AuscaClient({ payment: delegated, origin: service.origin });
+      const outcome = await client.invoke("echo.test", { message: "via port" });
+      expect(outcome.payment?.transaction).toBe("delegated");
+      expect(service.requests).toEqual({ unsigned: 1, signed: 1 });
+    } finally {
+      await service.close();
+    }
+  });
+
+  it("derives a deterministic idempotency key from offer and input", async () => {
+    const service = await startAuscaService();
+    try {
+      const client = new AuscaClient({ payment: inertAuthority(), origin: service.origin });
+      const offer = await client.offer("echo.test");
+      const first = await client.envelope(offer, { message: "same" });
+      const second = await client.envelope(offer, { message: "same" });
+      const different = await client.envelope(offer, { message: "other" });
+      expect(first.idempotency_key).toBe(second.idempotency_key);
+      expect(first.idempotency_key).not.toBe(different.idempotency_key);
+      expect(String(first.idempotency_key)).toMatch(/^ausca-[0-9a-f]{32}$/);
+    } finally {
+      await service.close();
+    }
+  });
+});
+
+describe("runxArtifactStore", () => {
+  it("allocates and hands off with digest-derived idempotency", async () => {
+    const operations: Record<string, unknown>[] = [];
+    const server = createServer((request, response) => {
+      const chunks: Buffer[] = [];
+      request.on("data", (chunk) => chunks.push(chunk));
+      request.on("end", () => {
+        const body = JSON.parse(Buffer.concat(chunks).toString());
+        operations.push({ ...body, authorization: request.headers.authorization });
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(JSON.stringify({
+          operation: body.operation,
+          access: "mutate",
+          result: {
+            artifact_ref: `runx:artifact:sha256:${"ab".repeat(32)}`,
+            content_digest: body.input.content_digest ?? `sha256:${"ab".repeat(32)}`,
+            media_type: "application/pdf",
+            size_bytes: 3,
+            created_at: "2026-09-03T00:00:00Z",
+          },
+        }));
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const store = runxArtifactStore({
+        token: "runx-test-token",
+        origin: `http://127.0.0.1:${address(server)}`,
+      });
+      const commitment = await store.commit(new TextEncoder().encode("pdf"), "application/pdf");
+      expect(commitment.artifactRef).toBe(`runx:artifact:sha256:${"ab".repeat(32)}`);
+      expect(commitment.contentDigest).toMatch(/^sha256:[0-9a-f]{64}$/);
+      expect(operations).toHaveLength(2);
+      const [allocate, handoff] = operations as [Record<string, never>, Record<string, never>];
+      expect(allocate.operation).toBe("artifact.allocate");
+      expect(allocate.authorization).toBe("Bearer runx-test-token");
+      expect((allocate.input as { idempotency_key: string }).idempotency_key).toMatch(/^ausca-artifact-[0-9a-f]{32}$/);
+      expect(handoff.operation).toBe("artifact.handoff");
+      expect((handoff.input as { target_principal_id: string }).target_principal_id).toBe("ausca");
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+  it("surfaces server refusals as typed artifact errors", async () => {
+    const server = createServer((_request, response) => {
+      response.writeHead(403, { "content-type": "application/json" });
+      response.end(JSON.stringify({ error: "Missing artifact operation scope." }));
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const store = runxArtifactStore({
+        token: "runx-test-token",
+        origin: `http://127.0.0.1:${address(server)}`,
+      });
+      await expect(store.commit(new TextEncoder().encode("pdf"), "application/pdf"))
+        .rejects.toThrow(ArtifactError);
+      await expect(store.commit(new Uint8Array(), "application/pdf"))
+        .rejects.toThrow("empty artifact");
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+});

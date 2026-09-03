@@ -1,0 +1,41 @@
+{
+  "name": "ausca",
+  "version": "0.0.2",
+  "description": "Ausca metered agent infrastructure services, paid per call under a hard USD cap with receipt-backed results. One package, three doors: the @ausca/sdk client, CLI verbs, and a local MCP server that pays where the key lives.",
+  "license": "MIT",
+  "homepage": "https://ausca.com",
+  "type": "module",
+  "keywords": ["ausca", "agents", "payments", "x402", "mcp", "cli"],
+  "bin": {
+    "ausca": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsup src/index.ts src/bin.ts --format esm,cjs --dts --clean",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ausca/sdk": "^0.1.0",
+    "@modelcontextprotocol/sdk": "^1.30.0"
+  },
+  "peerDependencies": {
+    "viem": ">=2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.0",
+    "viem": "^2.44.0",
+    "vitest": "^4.0.0"
+  }
+}

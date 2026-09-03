@@ -1,9 +1,9 @@
-"""The Ausca client: catalog-bound paid invocations over x402 v2.
+"""The Ausca client: catalog-bound paid invocations.
 
-Payment construction and signing stay entirely in the official ``x402``
-library; this module binds invocation envelopes to the immutable catalog,
-enforces a hard per-call USD cap through the library's spend controls, and
-returns results together with their decoded settlement proof.
+It resolves an offer's immutable binding from the live catalog, builds the
+exact envelope with a deterministic idempotency key, and pays the offer's
+own payable resource through the configured payment authority. Rails are
+authority implementations, never client concerns.
 """
 
 from __future__ import annotations
@@ -14,23 +14,43 @@ from dataclasses import dataclass
 from typing import Any
 
 import httpx
-from eth_account import Account
 from eth_account.signers.local import LocalAccount
-from x402 import SchemeRegistration, SpendControls, x402ClientConfig, x402ClientSync
-from x402.http import x402HTTPClientSync
-from x402.mechanisms.evm.exact import ExactEvmClientScheme
-from x402.mechanisms.evm.signers import EthAccountSigner
+
+from ausca.artifacts import ArtifactCommitment, ArtifactStore
+from ausca.payment import (
+    InertAuthority,
+    LocalKeyAuthority,
+    PaymentAuthority,
+    PaymentReceipt,
+)
 
 ORIGIN = "https://ausca.com"
 CATALOG_URL = f"{ORIGIN}/catalog.json"
 SKILL_URL = f"{ORIGIN}/SKILL.md"
 
-_PAYMENT_REQUIRED = "PAYMENT-REQUIRED"
-_PAYMENT_RESPONSE = "PAYMENT-RESPONSE"
-
 
 class AuscaError(Exception):
     """A refused, failed, or unpayable invocation."""
+
+
+@dataclass(frozen=True)
+class PriceOption:
+    """One price option of an input_choice offer."""
+
+    amount_minor: int
+    value: Any
+
+
+@dataclass(frozen=True)
+class Price:
+    """The published price policy of one active offer."""
+
+    currency: str
+    model: str
+    minimum_minor: int
+    maximum_minor: int
+    options: tuple[PriceOption, ...] | None
+    input_field: str | None
 
 
 @dataclass(frozen=True)
@@ -41,22 +61,15 @@ class Offer:
     revision: str
     revision_digest: str
     input_schema_digest: str
+    input_schema_path: str
     output_schema_digest: str
     canonicalizer_version: str
     route_method: str
     route_path: str
     title: str
     description: str
-
-
-@dataclass(frozen=True)
-class PaymentReceipt:
-    """Settlement proof decoded from the PAYMENT-RESPONSE header."""
-
-    success: bool
-    network: str | None
-    transaction: str | None
-    payer: str | None
+    price: Price
+    artifact_input_mode: str
 
 
 @dataclass(frozen=True)
@@ -69,39 +82,51 @@ class InvocationResult:
 
 
 class AuscaClient:
-    """Discover offers and run paid invocations under an explicit spend cap.
+    """Discover offers and run paid invocations under an explicit policy.
 
-    The signing key never leaves the process and the cap is enforced by the
-    x402 client before anything is signed.
+    Payment flows through a ``PaymentAuthority``; the default local-key
+    authority enforces a hard per-call USD cap before anything is signed
+    and keys never leave the process.
     """
 
     def __init__(
         self,
+        *,
+        payment: PaymentAuthority | None = None,
+        artifacts: ArtifactStore | None = None,
+        origin: str = ORIGIN,
+        http: httpx.Client | None = None,
+    ) -> None:
+        self._origin = origin.rstrip("/")
+        self._http = http or httpx.Client(timeout=60)
+        self._payment: PaymentAuthority = payment or InertAuthority()
+        self._artifacts = artifacts
+        self._catalog: dict[str, Any] | None = None
+
+    @classmethod
+    def with_local_key(
+        cls,
         *,
         private_key: str | None = None,
         account: LocalAccount | None = None,
         max_payment_usd: float,
         network: str = "eip155:8453",
         origin: str = ORIGIN,
+        artifacts: ArtifactStore | None = None,
         http: httpx.Client | None = None,
-    ) -> None:
-        if not max_payment_usd or max_payment_usd <= 0:
-            raise ValueError("max_payment_usd must be a positive number")
-        if account is None:
-            if private_key is None:
-                raise ValueError("one of account or private_key is required")
-            account = Account.from_key(private_key)
-        self._origin = origin.rstrip("/")
-        self._http = http or httpx.Client(timeout=60)
-        self._catalog: dict[str, Any] | None = None
-        scheme = ExactEvmClientScheme(EthAccountSigner(account))
-        client = x402ClientSync.from_config(
-            x402ClientConfig(
-                schemes=[SchemeRegistration(network=network, client=scheme, x402_version=2)],
-                spend_controls=SpendControls(max_amount_per_payment=f"${max_payment_usd}"),
-            )
+    ) -> "AuscaClient":
+        """Sugar for the default rail: a local signing key under a hard USD cap."""
+        return cls(
+            payment=LocalKeyAuthority(
+                private_key=private_key,
+                account=account,
+                max_payment_usd=max_payment_usd,
+                network=network,
+            ),
+            artifacts=artifacts,
+            origin=origin,
+            http=http,
         )
-        self._payments = x402HTTPClientSync(client)
 
     def catalog(self, *, refresh: bool = False) -> dict[str, Any]:
         """The live immutable catalog, fetched once and cached."""
@@ -115,19 +140,40 @@ class AuscaClient:
         """Resolve one active offer's immutable binding."""
         for entry in self.catalog().get("offers", []):
             if entry["offer_id"] == offer_id:
+                price = entry.get("price", {})
+                options = price.get("options")
                 return Offer(
                     offer_id=entry["offer_id"],
                     revision=entry["revision"],
                     revision_digest=entry["revision_digest"],
                     input_schema_digest=entry["input_schema"]["digest"],
+                    input_schema_path=entry["input_schema"].get("public_path", ""),
                     output_schema_digest=entry["output_schema"]["digest"],
                     canonicalizer_version=entry["canonicalizer_version"],
                     route_method=entry["route"]["method"],
                     route_path=entry["route"]["path"],
                     title=entry["title"],
                     description=entry["description"],
+                    artifact_input_mode=entry.get("artifact", {}).get("input_mode", "none"),
+                    price=Price(
+                        currency=price.get("currency", "USD"),
+                        model=price.get("model", ""),
+                        minimum_minor=price.get("minimum_minor", 0),
+                        maximum_minor=price.get("maximum_minor", 0),
+                        input_field=price.get("input_field"),
+                        options=tuple(
+                            PriceOption(amount_minor=option["amount_minor"], value=option["value"])
+                            for option in options
+                        )
+                        if options
+                        else None,
+                    ),
                 )
         raise AuscaError(f"offer {offer_id!r} is not active in the catalog")
+
+    def price(self, offer_id: str) -> Price:
+        """The published price policy of one offer. No wallet is needed."""
+        return self.offer(offer_id).price
 
     def envelope(
         self, offer: Offer, invocation_input: dict[str, Any], idempotency_key: str | None = None
@@ -162,7 +208,7 @@ class AuscaClient:
         *,
         idempotency_key: str | None = None,
     ) -> InvocationResult:
-        """Run one paid invocation: probe, pay within the cap, return proof."""
+        """Run one paid invocation: probe, pay within policy, return proof."""
         offer = self.offer(offer_id)
         body = self.envelope(offer, invocation_input, idempotency_key)
         return self.pay_request(
@@ -172,15 +218,9 @@ class AuscaClient:
     def pay_request(
         self, url: str, *, method: str = "POST", json_body: dict[str, Any] | None = None
     ) -> InvocationResult:
-        """One paid call against any x402 v2 resource, under the same cap."""
-        request = {"method": method, "url": url, "json": json_body}
-        response = self._http.request(**request)
-        if response.status_code == 402:
-            extra_headers, _payload = self._payments.handle_402_response(
-                dict(response.headers), response.content, url
-            )
-            response = self._http.request(**request, headers=extra_headers)
-        payment = self._payment_receipt(response)
+        """One paid call against any resource the configured authority can pay."""
+        response = self._payment.request(self._http, method, url, json_body)
+        payment = self._payment.receipt(response)
         try:
             result: Any = response.json()
         except ValueError:
@@ -191,13 +231,15 @@ class AuscaClient:
             )
         return InvocationResult(result=result, payment=payment, status=response.status_code)
 
-    def _payment_receipt(self, response: httpx.Response) -> PaymentReceipt | None:
-        if _PAYMENT_RESPONSE not in response.headers:
-            return None
-        settled = self._payments.get_payment_settle_response(response.headers.get)
-        return PaymentReceipt(
-            success=bool(getattr(settled, "success", False)),
-            network=getattr(settled, "network", None),
-            transaction=getattr(settled, "transaction", None),
-            payer=getattr(settled, "payer", None),
-        )
+    def invocation(self, invocation_id: str) -> dict[str, Any]:
+        """Read authoritative durable invocation state without a new purchase."""
+        response = self._http.get(f"{self._origin}/v1/invocations/{invocation_id}")
+        if response.status_code >= 400:
+            raise AuscaError(f"invocation read answered {response.status_code}")
+        return response.json()
+
+    def commit(self, data: bytes, media_type: str) -> ArtifactCommitment:
+        """Commit input bytes through the configured artifact store."""
+        if self._artifacts is None:
+            raise AuscaError("no artifact store is configured; artifact-backed offers need one")
+        return self._artifacts.commit(data, media_type)

@@ -1,5 +1,5 @@
 {
-  "name": "@ausca-internal/payable-core",
+  "name": "@ausca-internal/payable",
   "version": "0.0.0",
   "private": true,
   "type": "module",

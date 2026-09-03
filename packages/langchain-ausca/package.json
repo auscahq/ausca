@@ -31,7 +31,7 @@
     "zod": ">=3"
   },
   "devDependencies": {
-    "@ausca-internal/payable-core": "*",
+    "@ausca-internal/payable": "*",
     "@langchain/core": "^1.2.0",
     "tsup": "^8.5.0",
     "typescript": "^5.9.0",
@@ -40,6 +40,6 @@
     "zod": "^3.25.0"
   },
   "tsup": {
-    "noExternal": ["@ausca-internal/payable-core"]
+    "noExternal": ["@ausca-internal/payable"]
   }
 }

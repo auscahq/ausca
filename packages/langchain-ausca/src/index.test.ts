@@ -2,7 +2,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { startX402Resource } from "@ausca-internal/payable-core/testkit";
+import { startX402Resource } from "@ausca-internal/payable/testkit";
 import { payableTool } from "./index.js";
 
 const account = privateKeyToAccount(`0x${"7".repeat(64)}`);

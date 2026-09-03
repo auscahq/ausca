@@ -5,9 +5,9 @@ import type { z } from "zod";
 import {
   payableCall,
   type PaymentReceipt,
-} from "@ausca-internal/payable-core";
+} from "@ausca-internal/payable";
 
-export type { PaymentReceipt } from "@ausca-internal/payable-core";
+export type { PaymentReceipt } from "@ausca-internal/payable";
 
 // A Vercel AI SDK tool that consumes a paid HTTP API by answering its 402
 // with an x402 v2 payment instead of carrying an API key. It works against
