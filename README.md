@@ -17,6 +17,7 @@
   <a href="https://pypi.org/project/ausca/"><img src="https://img.shields.io/pypi/v/ausca?label=PyPI%20ausca" alt="PyPI ausca" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-black" alt="MIT license" /></a>
   <a href="https://registry.modelcontextprotocol.io/v0/servers?search=com.ausca"><img src="https://img.shields.io/badge/MCP%20registry-com.ausca%2Fagent--services-black" alt="MCP registry" /></a>
+  <a href="https://smithery.ai/servers/ausca/ausca"><img src="https://smithery.ai/badge/ausca/ausca" alt="Smithery" /></a>
 </p>
 
 Agents buy infrastructure the way they call tools: send the request, pay the
