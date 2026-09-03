@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ausca"
+version = "0.0.1"
+description = "Client for Ausca metered agent infrastructure services: catalog-bound invocations paid per call over x402 v2, under a hard USD cap, with receipt-backed results."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+keywords = ["ausca", "x402", "agents", "payments", "mcp"]
+dependencies = [
+  "httpx>=0.28",
+  "x402[evm]>=2.21.0",
+  "eth-account>=0.13",
+]
+
+[project.urls]
+Homepage = "https://ausca.com"
+Documentation = "https://ausca.com/docs"
+
+[tool.setuptools.packages.find]
+where = ["src"]
