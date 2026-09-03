@@ -1,6 +1,10 @@
 # Ausca front door: architecture and code plan
 
-Status: awaiting Kam's approval. No build until sign-off.
+Status: SHIPPED 2026-09-03. Approved by Kam, built (B1 to B6), npm chain
+published and install-verified (@ausca/sdk 0.1.0, ausca 0.0.2,
+@ausca/ai-sdk 0.1.0, unscoped ausca-ai-sdk deprecated), site and agent
+surfaces aligned and deployed (B8). Open: PyPI publish awaits credentials
+(dist ready); §8 MPP seller decision; §9.6 keyless ingestion decision.
 Date: 2026-09-03. Owner: this repo (ausca-integrations).
 
 ## 1. Decision record
