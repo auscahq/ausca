@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "ausca": {
+      "command": "npx",
+      "args": ["-y", "ausca", "mcp"],
+      "env": {
+        "AUSCA_PRIVATE_KEY": "",
+        "AUSCA_MAX_PAYMENT_USD": ""
+      }
+    }
+  }
+}
