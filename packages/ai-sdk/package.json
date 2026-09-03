@@ -4,6 +4,12 @@
   "description": "Vercel AI SDK tools that pay for HTTP 402 APIs over x402 instead of carrying API keys. Works with any x402 v2 resource; Ausca is the default example.",
   "license": "MIT",
   "homepage": "https://ausca.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/auscahq/ausca-integrations.git",
+    "directory": "packages/ai-sdk"
+  },
+  "bugs": "https://github.com/auscahq/ausca-integrations/issues",
   "type": "module",
   "keywords": ["ai-sdk", "vercel", "x402", "payments", "agents", "tools", "ausca"],
   "exports": {

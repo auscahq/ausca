@@ -1,5 +1,3 @@
-import { createRequire } from "node:module";
-
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -7,10 +5,11 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import type { AuscaClient, Price } from "@ausca/sdk";
+import { MAX_ARTIFACT_BYTES, type AuscaClient, type Price } from "@ausca/sdk";
+
+import packageMetadata from "../package.json";
 
 import {
-  artifactsFromEnvironment,
   clientFromEnvironment,
   paymentFromEnvironment,
   type Environment,
@@ -24,6 +23,8 @@ import {
 // the configured authority.
 
 const PERMISSIVE_INPUT = { type: "object" } as const;
+const MAX_BASE64_LENGTH = 4 * Math.ceil(MAX_ARTIFACT_BYTES / 3);
+const IDEMPOTENCY_ARGUMENT = "ausca_idempotency_key";
 
 interface DerivedTool {
   readonly name: string;
@@ -46,10 +47,38 @@ function priceSummary(price: Price): string {
   return `${usd(price.minimumMinor)} to ${usd(price.maximumMinor)} per call`;
 }
 
+function withInvocationIdentity(schema: Record<string, unknown>): Record<string, unknown> {
+  const properties = schema.properties;
+  if (
+    schema.type !== "object" ||
+    (properties !== undefined &&
+      (typeof properties !== "object" || properties === null || Array.isArray(properties)))
+  ) {
+    throw new Error("offer input schema must be an object before MCP projection");
+  }
+  const current = (properties ?? {}) as Record<string, unknown>;
+  if (IDEMPOTENCY_ARGUMENT in current) {
+    throw new Error(`offer input schema reserves ${IDEMPOTENCY_ARGUMENT} for MCP recovery`);
+  }
+  return {
+    ...schema,
+    properties: {
+      ...current,
+      [IDEMPOTENCY_ARGUMENT]: {
+        type: "string",
+        minLength: 16,
+        maxLength: 128,
+        description:
+          "Optional caller-owned identity for recovery. Reuse it only for the same intentional purchase; omit it for a new purchase.",
+      },
+    },
+  };
+}
+
 async function deriveTools(
   client: AuscaClient,
   origin: string,
-  options: { paying: boolean; committing: boolean },
+  options: { paying: boolean },
 ): Promise<DerivedTool[]> {
   const { offers, document } = await client.catalog();
   const operations = ((document.contract as Record<string, unknown> | undefined)?.operations ??
@@ -83,7 +112,7 @@ async function deriveTools(
     tools.push({
       name,
       offerId: offer.offerId,
-      inputSchema,
+      inputSchema: withInvocationIdentity(inputSchema),
       description: `${offer.description} Price: ${priceSummary(offer.price)}. ${paymentNote}`,
     });
   }
@@ -103,22 +132,20 @@ async function deriveTools(
       properties: { offer_id: { type: "string" } },
     },
   });
-  if (options.committing) {
-    tools.push({
-      name: "ausca_commit_artifact",
-      description:
-        "Commit input bytes as an immutable artifact for document and media offers; returns the commitment the offer input carries.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        required: ["data_base64", "media_type"],
-        properties: {
-          data_base64: { type: "string" },
-          media_type: { type: "string" },
-        },
+  tools.push({
+    name: "ausca_commit_artifact",
+    description:
+      "Commit input bytes through Ausca's keyless temporary ingress; returns the immutable commitment required by document and media offers.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["data_base64", "media_type"],
+      properties: {
+        data_base64: { type: "string" },
+        media_type: { type: "string" },
       },
-    });
-  }
+    },
+  });
   return tools;
 }
 
@@ -132,16 +159,29 @@ function textResult(value: unknown, isError = false): {
   };
 }
 
+function decodeArtifactBytes(value: unknown): Uint8Array {
+  if (
+    typeof value !== "string" ||
+    value.length < 4 ||
+    value.length > MAX_BASE64_LENGTH ||
+    value.length % 4 !== 0 ||
+    !/^[A-Za-z0-9+/]*={0,2}$/u.test(value)
+  ) {
+    throw new Error("data_base64 must be bounded canonical standard base64");
+  }
+  const decoded = Buffer.from(value, "base64");
+  if (decoded.length === 0 || decoded.toString("base64") !== value) {
+    throw new Error("data_base64 must be bounded canonical standard base64");
+  }
+  return new Uint8Array(decoded);
+}
+
 export async function buildMcpServer(env: Environment): Promise<Server> {
   const client = clientFromEnvironment(env);
   const paying = paymentFromEnvironment(env) !== null;
-  const artifacts = artifactsFromEnvironment(env);
   const origin = env.AUSCA_ORIGIN ?? "https://ausca.com";
-  const tools = await deriveTools(client, origin, {
-    paying,
-    committing: artifacts !== undefined,
-  });
-  const version = createRequire(import.meta.url)("../package.json").version as string;
+  const tools = await deriveTools(client, origin, { paying });
+  const version = packageMetadata.version;
 
   const server = new Server({ name: "ausca", version }, { capabilities: { tools: {} } });
 
@@ -172,8 +212,9 @@ export async function buildMcpServer(env: Environment): Promise<Server> {
         return textResult(await client.price(args.offer_id as string));
       }
       if (tool.name === "ausca_commit_artifact") {
-        const bytes = Uint8Array.from(Buffer.from(args.data_base64 as string, "base64"));
-        return textResult(await client.commit(bytes, args.media_type as string));
+        return textResult(
+          await client.commit(decodeArtifactBytes(args.data_base64), args.media_type as string),
+        );
       }
       if (!paying) {
         return textResult(
@@ -184,7 +225,15 @@ export async function buildMcpServer(env: Environment): Promise<Server> {
           true,
         );
       }
-      return textResult(await client.invoke(tool.offerId as string, args));
+      const { [IDEMPOTENCY_ARGUMENT]: idempotencyKey, ...input } = args;
+      if (idempotencyKey !== undefined && typeof idempotencyKey !== "string") {
+        throw new Error(`${IDEMPOTENCY_ARGUMENT} must be a string`);
+      }
+      return textResult(
+        await client.invoke(tool.offerId as string, input, {
+          ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+        }),
+      );
     } catch (error) {
       return textResult({ error: error instanceof Error ? error.message : String(error) }, true);
     }

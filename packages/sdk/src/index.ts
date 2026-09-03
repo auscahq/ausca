@@ -19,11 +19,11 @@ export {
 
 export {
   ArtifactError,
-  RUNX_ORIGIN,
-  runxArtifactStore,
+  MAX_ARTIFACT_BYTES,
+  auscaArtifactStore,
   type ArtifactCommitment,
   type ArtifactStore,
-  type RunxArtifactStoreOptions,
+  type AuscaArtifactStoreOptions,
 } from "./artifacts.js";
 
 export {

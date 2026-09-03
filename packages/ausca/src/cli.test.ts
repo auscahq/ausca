@@ -1,3 +1,7 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { startAuscaService } from "@ausca/sdk/testkit";
@@ -45,7 +49,13 @@ describe("ausca cli", () => {
         AUSCA_PRIVATE_KEY: TEST_KEY,
         AUSCA_MAX_PAYMENT_USD: "0.05",
       });
-      const code = await runCli(["invoke", "echo.test", '{"message":"hi"}'], environment);
+      const code = await runCli([
+        "invoke",
+        "echo.test",
+        '{"message":"hi"}',
+        "--idempotency-key",
+        "cli-purchase-20260903-0001",
+      ], environment);
       expect(environment.errors).toEqual([]);
       expect(code).toBe(0);
       const outcome = JSON.parse(environment.lines[0]) as {
@@ -83,5 +93,25 @@ describe("ausca cli", () => {
     expect(mediaTypeFor("contract.pdf")).toBe("application/pdf");
     expect(mediaTypeFor("call.MP3")).toBe("audio/mpeg");
     expect(mediaTypeFor("mystery.bin")).toBe("application/octet-stream");
+  });
+
+  it("commits a local file without wallet configuration", async () => {
+    const service = await startAuscaService();
+    const directory = await mkdtemp(join(tmpdir(), "ausca-cli-"));
+    const file = join(directory, "scan.pdf");
+    await writeFile(file, "pdf");
+    try {
+      const environment = testEnvironment({ AUSCA_ORIGIN: service.origin });
+      const code = await runCli(["commit", file], environment);
+      expect(environment.errors).toEqual([]);
+      expect(code).toBe(0);
+      const commitment = JSON.parse(environment.lines[0]) as { artifactRef: string };
+      expect(commitment.artifactRef).toMatch(/^runx:artifact:sha256:/u);
+      expect(service.artifactRequests).toHaveLength(1);
+      expect(service.artifactRequests[0].authorization).toBeUndefined();
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+      await service.close();
+    }
   });
 });

@@ -1,8 +1,8 @@
 """The front-door verbs, mirroring the npm ``ausca`` bin.
 
 Configuration is environment only: a signing key and a mandatory per-call
-USD cap for paying verbs, a Runx token for artifact commits, nothing else.
-Output is JSON on stdout.
+USD cap for paying verbs, nothing else. Artifact commits are keyless. Output
+is JSON on stdout.
 """
 
 from __future__ import annotations
@@ -14,18 +14,18 @@ import sys
 from pathlib import Path
 from typing import Any, Mapping, TextIO
 
-from ausca.artifacts import ArtifactStore, RunxArtifactStore
 from ausca.client import AuscaClient, ORIGIN
 
 USAGE = """ausca: metered agent infrastructure services, paid per call
 
   ausca catalog                    active offers, prices, routes
   ausca price <offer-id>           published price policy
-  ausca invoke <offer-id> [input]  paid invocation; input inline, @file, or stdin
+  ausca invoke <offer-id> [input] [--idempotency-key <key>]
+                                     paid invocation; input inline, @file, or stdin
   ausca commit <file>              artifact commitment for document and media offers
 
 Environment: AUSCA_PRIVATE_KEY and AUSCA_MAX_PAYMENT_USD pay invocations;
-AUSCA_NETWORK overrides the payment network; RUNX_API_TOKEN enables commit.
+AUSCA_NETWORK overrides the payment network; AUSCA_ORIGIN overrides the service.
 The MCP server ships in the npm package: npx ausca mcp."""
 
 MEDIA_TYPES = {
@@ -58,11 +58,6 @@ def media_type_for(name: str) -> str:
     return MEDIA_TYPES.get(name.lower().rsplit(".", 1)[-1], "application/octet-stream")
 
 
-def _artifacts(env: Mapping[str, str]) -> ArtifactStore | None:
-    token = env.get("RUNX_API_TOKEN")
-    return RunxArtifactStore(token=token) if token else None
-
-
 def _client(env: Mapping[str, str], *, require_payment: bool = False) -> AuscaClient:
     origin = env.get("AUSCA_ORIGIN", ORIGIN)
     key = env.get("AUSCA_PRIVATE_KEY")
@@ -72,7 +67,7 @@ def _client(env: Mapping[str, str], *, require_payment: bool = False) -> AuscaCl
                 "paid invocations need AUSCA_PRIVATE_KEY and AUSCA_MAX_PAYMENT_USD"
                 " in the environment"
             )
-        return AuscaClient(origin=origin, artifacts=_artifacts(env))
+        return AuscaClient(origin=origin)
     try:
         cap = float(env.get("AUSCA_MAX_PAYMENT_USD", ""))
     except ValueError:
@@ -87,7 +82,6 @@ def _client(env: Mapping[str, str], *, require_payment: bool = False) -> AuscaCl
         max_payment_usd=cap,
         network=env.get("AUSCA_NETWORK", "eip155:8453"),
         origin=origin,
-        artifacts=_artifacts(env),
     )
 
 
@@ -108,6 +102,30 @@ def _resolve_input(argument: str | None, stdin: TextIO) -> dict[str, Any]:
         return json.loads(text)
     except ValueError as error:
         raise SystemExit("invocation input must be valid JSON") from error
+
+
+def _invocation_args(argv: list[str]) -> tuple[str, str | None, str | None]:
+    if not argv:
+        raise SystemExit(
+            "usage: ausca invoke <offer-id> [input] [--idempotency-key <key>]"
+        )
+    offer_id = argv[0]
+    input_argument: str | None = None
+    idempotency_key: str | None = None
+    index = 1
+    while index < len(argv):
+        argument = argv[index]
+        if argument == "--idempotency-key":
+            if idempotency_key is not None or index + 1 >= len(argv):
+                raise SystemExit("--idempotency-key requires one value")
+            idempotency_key = argv[index + 1]
+            index += 2
+        elif input_argument is None:
+            input_argument = argument
+            index += 1
+        else:
+            raise SystemExit(f"unexpected invoke argument {argument}")
+    return offer_id, input_argument, idempotency_key
 
 
 def run(
@@ -134,20 +152,20 @@ def run(
         print(_json(_client(env).price(argv[1])), file=stdout)
         return 0
     if verb == "invoke":
-        if len(argv) < 2:
-            raise SystemExit("usage: ausca invoke <offer-id> [input]")
+        offer_id, input_argument, idempotency_key = _invocation_args(argv[1:])
         client = _client(env, require_payment=True)
-        outcome = client.invoke(argv[1], _resolve_input(argv[2] if len(argv) > 2 else None, stdin))
+        outcome = client.invoke(
+            offer_id,
+            _resolve_input(input_argument, stdin),
+            idempotency_key=idempotency_key,
+        )
         print(_json(outcome), file=stdout)
         return 0
     if verb == "commit":
         if len(argv) < 2:
             raise SystemExit("usage: ausca commit <file>")
-        store = _artifacts(env)
-        if store is None:
-            raise SystemExit("artifact commits need RUNX_API_TOKEN in the environment")
         path = Path(argv[1])
-        commitment = store.commit(path.read_bytes(), media_type_for(path.name))
+        commitment = _client(env).commit(path.read_bytes(), media_type_for(path.name))
         print(_json(commitment), file=stdout)
         return 0
     raise SystemExit(f"unknown verb {verb}; run ausca help")

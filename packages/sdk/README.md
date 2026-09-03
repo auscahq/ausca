@@ -26,8 +26,10 @@ const state = await client.invocation("inv_...");
 ```
 
 The envelope carries the offer's immutable revision, schema digests, and
-canonicalizer exactly as the catalog declares, with a deterministic
-idempotency key derived from the offer and input.
+canonicalizer exactly as the catalog declares. Each `invoke` starts with a
+fresh idempotency key. For recovery after an uncertain response, retry with
+the same caller-owned `idempotencyKey`; use a new key for a new intentional
+purchase, even when the input is identical.
 
 ## Payment authorities
 
@@ -46,9 +48,15 @@ Caps are enforced inside the authority before anything is signed.
 ## Artifact store
 
 Artifact-backed offers take an immutable input commitment.
-`runxArtifactStore({ token })` commits bytes through the hosted Runx
-artifact boundary with digest-derived idempotency and returns the
-commitment; `ArtifactStore` is the port for future ingestion rails.
+`client.commit(bytes, mediaType)` uses Ausca's keyless temporary ingress,
+verifies the returned digest-backed evidence, and returns the commitment the
+invocation input carries. No account or API token is needed. `ArtifactStore`
+remains the narrow port for a custom storage policy.
+
+Successful paid state includes `receipt_ref.public_url`, an immutable
+hash-only proof of the Ausca service, public price, completion time, and
+receipt digest. It contains no request or result bytes, content digests, or
+access capabilities. Anyone holding the unguessable URL can read it.
 
 ## Testkit
 

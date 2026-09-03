@@ -1,5 +1,4 @@
-import { sha256HexOfJson } from "./digest.js";
-import type { ArtifactCommitment, ArtifactStore } from "./artifacts.js";
+import { auscaArtifactStore, type ArtifactCommitment, type ArtifactStore } from "./artifacts.js";
 import {
   localKeyAuthority,
   type LocalKeyAuthorityOptions,
@@ -9,7 +8,7 @@ import {
 
 // The Ausca client: catalog-bound paid invocations. It resolves an offer's
 // immutable binding from the live catalog, builds the exact envelope with a
-// deterministic idempotency key, and pays the offer's own payable resource
+// caller-stable idempotency key, and pays the offer's own payable resource
 // through the configured payment authority. Rails are authority
 // implementations, never client concerns.
 
@@ -80,7 +79,7 @@ export interface Catalog {
 export interface AuscaClientOptions {
   /** The payment authority that pays 402 challenges within policy. */
   readonly payment: PaymentAuthority;
-  /** Store for artifact-backed offer inputs; optional. */
+  /** Optional custom store for artifact-backed inputs; Ausca ingress is the default. */
   readonly artifacts?: ArtifactStore;
   /** Service origin override, for tests. */
   readonly origin?: string;
@@ -99,7 +98,7 @@ export class AuscaClient {
   private readonly baseFetch: typeof globalThis.fetch;
   private readonly payableFetch: typeof globalThis.fetch;
   private readonly payment: PaymentAuthority;
-  private readonly artifacts: ArtifactStore | undefined;
+  private readonly artifacts: ArtifactStore;
   private catalogDocument: Catalog | null = null;
 
   constructor(options: AuscaClientOptions) {
@@ -107,7 +106,7 @@ export class AuscaClient {
     this.baseFetch = options.fetch ?? globalThis.fetch;
     this.payment = options.payment;
     this.payableFetch = options.payment.wrapFetch(this.baseFetch);
-    this.artifacts = options.artifacts;
+    this.artifacts = options.artifacts ?? auscaArtifactStore({ origin: this.origin, fetch: this.baseFetch });
   }
 
   /** Sugar for the default rail: a local signing key under a hard USD cap. */
@@ -180,9 +179,9 @@ export class AuscaClient {
   }
 
   /**
-   * The exact invocation envelope for one offer. The default idempotency key
-   * derives from the offer and input, so an uncertain retry of the same
-   * request can never mint a second purchase.
+   * The exact invocation envelope for one offer. A fresh key starts one
+   * intentional purchase; supply the same explicit key to recover or retry
+   * that purchase without minting another.
    */
   async envelope(
     offer: Offer,
@@ -190,8 +189,16 @@ export class AuscaClient {
     idempotencyKey?: string,
   ): Promise<Record<string, unknown>> {
     if (idempotencyKey === undefined) {
-      const hex = await sha256HexOfJson([offer.offerId, offer.revisionDigest, input]);
-      idempotencyKey = `ausca-${hex.slice(0, 32)}`;
+      idempotencyKey = `ausca-${crypto.randomUUID()}`;
+    }
+    const keyBytes = new TextEncoder().encode(idempotencyKey).length;
+    if (
+      keyBytes < 16 ||
+      keyBytes > 128 ||
+      idempotencyKey.trim() !== idempotencyKey ||
+      /[\u0000-\u001f\u007f]/u.test(idempotencyKey)
+    ) {
+      throw new AuscaError("idempotencyKey must be 16 to 128 clean UTF-8 bytes");
     }
     return {
       offer_id: offer.offerId,
@@ -249,11 +256,6 @@ export class AuscaClient {
 
   /** Commit input bytes through the configured artifact store. */
   async commit(bytes: Uint8Array, mediaType: string): Promise<ArtifactCommitment> {
-    if (!this.artifacts) {
-      throw new AuscaError(
-        "no artifact store is configured; artifact-backed offers need one",
-      );
-    }
     return this.artifacts.commit(bytes, mediaType);
   }
 }

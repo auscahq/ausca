@@ -1,9 +1,16 @@
 {
   "name": "ausca",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Ausca metered agent infrastructure services, paid per call under a hard USD cap with receipt-backed results. One package, three doors: the @ausca/sdk client, CLI verbs, and a local MCP server that pays where the key lives.",
   "license": "MIT",
   "homepage": "https://ausca.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/auscahq/ausca-integrations.git",
+    "directory": "packages/ausca"
+  },
+  "bugs": "https://github.com/auscahq/ausca-integrations/issues",
+  "mcpName": "com.ausca/agent-services",
   "type": "module",
   "keywords": ["ausca", "agents", "payments", "x402", "mcp", "cli"],
   "bin": {
@@ -25,7 +32,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@ausca/sdk": "^0.1.0",
+    "@ausca/sdk": "^0.1.1",
     "@modelcontextprotocol/sdk": "^1.30.0"
   },
   "peerDependencies": {

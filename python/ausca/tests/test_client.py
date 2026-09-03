@@ -124,14 +124,20 @@ def test_invoke_pays_within_cap_and_returns_settlement_proof(resource: str) -> N
     assert _Resource.seen == {"unsigned": 1, "signed": 1}
 
 
-def test_idempotency_key_is_deterministic(resource: str) -> None:
+def test_new_calls_get_distinct_keys_and_explicit_recovery_key_is_preserved(resource: str) -> None:
     client = AuscaClient.with_local_key(private_key=PRIVATE_KEY, max_payment_usd=0.25, origin=resource)
     offer = client.offer("document.ocr")
     first = client.envelope(offer, {"a": 1})["idempotency_key"]
     second = client.envelope(offer, {"a": 1})["idempotency_key"]
-    different = client.envelope(offer, {"a": 2})["idempotency_key"]
-    assert first == second
-    assert first != different
+    recovered = client.envelope(offer, {"a": 1}, "purchase-20260903-0001")
+    assert first != second
+    assert recovered["idempotency_key"] == "purchase-20260903-0001"
+    with pytest.raises(AuscaError, match="16 to 128 clean UTF-8 bytes"):
+        client.envelope(offer, {"a": 1}, "too-short")
+    with pytest.raises(AuscaError, match="16 to 128 clean UTF-8 bytes"):
+        client.envelope(offer, {"a": 1}, "🙂" * 40)
+    with pytest.raises(AuscaError, match="16 to 128 clean UTF-8 bytes"):
+        client.envelope(offer, {"a": 1}, "purchase-20260903\n0001")
 
 
 def test_refuses_to_pay_above_the_cap_before_signing(resource: str) -> None:

@@ -14,9 +14,8 @@ from ausca import (
     ArtifactError,
     AuscaClient,
     PaymentReceipt,
-    RunxArtifactStore,
 )
-from ausca.cli import media_type_for, run
+from ausca.cli import _invocation_args, media_type_for, run
 
 CATALOG = {
     "offers": [
@@ -136,6 +135,21 @@ def test_cli_refuses_key_without_cap(service: str) -> None:
         )
 
 
+def test_cli_accepts_a_caller_owned_recovery_key() -> None:
+    assert _invocation_args(
+        [
+            "echo.test",
+            '{"message":"recover"}',
+            "--idempotency-key",
+            "cli-purchase-20260903-0001",
+        ]
+    ) == (
+        "echo.test",
+        '{"message":"recover"}',
+        "cli-purchase-20260903-0001",
+    )
+
+
 def test_media_types() -> None:
     assert media_type_for("scan.PDF") == "application/pdf"
     assert media_type_for("mystery.bin") == "application/octet-stream"
@@ -150,14 +164,15 @@ class _ArtifactService(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         length = int(self.headers.get("content-length", 0))
         body = json.loads(self.rfile.read(length))
-        type(self).operations.append({**body, "authorization": self.headers.get("authorization")})
+        type(self).operations.append(
+            {**body, "authorization": self.headers.get("authorization"), "path": self.path}
+        )
         data = json.dumps(
             {
-                "operation": body["operation"],
-                "access": "mutate",
-                "result": {
-                    "artifact_ref": "runx:artifact:sha256:" + "ab" * 32,
-                    "content_digest": body["input"].get("content_digest", "sha256:" + "ab" * 32),
+                "status": "stored",
+                "artifact": {
+                    "artifact_ref": "runx:artifact:" + body["content_digest"],
+                    "content_digest": body["content_digest"],
                     "media_type": "application/pdf",
                     "size_bytes": 3,
                     "created_at": "2026-09-03T00:00:00Z",
@@ -171,24 +186,21 @@ class _ArtifactService(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
 
-def test_runx_artifact_store_allocates_and_hands_off() -> None:
+def test_ausca_artifact_store_commits_keylessly() -> None:
     _ArtifactService.operations = []
     server = HTTPServer(("127.0.0.1", 0), _ArtifactService)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        store = RunxArtifactStore(
-            token="runx-test-token", origin=f"http://127.0.0.1:{server.server_port}"
-        )
-        commitment = store.commit(b"pdf", "application/pdf")
+        client = AuscaClient(origin=f"http://127.0.0.1:{server.server_port}")
+        commitment = client.commit(b"pdf", "application/pdf")
         assert commitment.artifact_ref.startswith("runx:artifact:sha256:")
         assert commitment.content_digest.startswith("sha256:")
-        allocate, handoff = _ArtifactService.operations
-        assert allocate["operation"] == "artifact.allocate"
-        assert allocate["authorization"] == "Bearer runx-test-token"
-        assert allocate["input"]["idempotency_key"].startswith("ausca-artifact-")
-        assert handoff["input"]["target_principal_id"] == "ausca"
-        with pytest.raises(ArtifactError, match="empty artifact"):
-            store.commit(b"", "application/pdf")
+        [commit] = _ArtifactService.operations
+        assert commit["path"] == "/v1/artifacts"
+        assert commit["authorization"] is None
+        assert commit["idempotency_key"].startswith("ausca-artifact-")
+        with pytest.raises(ArtifactError, match="1 to"):
+            client.commit(b"", "application/pdf")
     finally:
         server.shutdown()

@@ -1,5 +1,7 @@
 # ausca
 
+<!-- mcp-name: com.ausca/agent-services -->
+
 Metered agent infrastructure services from [Ausca](https://ausca.com):
 document OCR, document analysis, media transcription, browser sessions, and
 agent inboxes. Paid per call under a hard USD cap you set, with a settlement
@@ -29,8 +31,9 @@ console.log(outcome.payment?.transaction); // settlement proof
 `invoke` resolves the offer's immutable revision, schema digests, and payable
 route from the live catalog, reads the exact payment requirement, pays it if
 it fits the cap, and retries the same bytes with the same idempotency key.
-The default idempotency key derives from the offer and input, so an uncertain
-retry can never mint a second purchase.
+Each call starts with a fresh key. For recovery after an uncertain response,
+pass the same caller-owned `idempotencyKey`; use a new key for another
+intentional purchase, even when its input is identical.
 
 ## CLI
 
@@ -39,12 +42,17 @@ npx ausca catalog
 npx ausca price document.ocr
 AUSCA_PRIVATE_KEY=0x... AUSCA_MAX_PAYMENT_USD=0.50 \
   npx ausca invoke browser.session '{"duration_seconds":600}'
+# Reuse this key only to recover that same intended purchase:
+npx ausca invoke browser.session '{"duration_seconds":600}' \
+  --idempotency-key browser-attempt-20260903-0001
 ```
 
 ## MCP
 
 The local server that pays where the key lives. Tools are derived from the
-live catalog at startup, one per active offer.
+live catalog at startup, one per active offer. Paid tools accept optional
+`ausca_idempotency_key` for recovery; omit it for every new intentional
+purchase and reuse it only after an uncertain response.
 
 ```json
 {
@@ -72,9 +80,15 @@ is enforced before anything is signed.
 ## Artifact-backed offers
 
 Document and media offers take an immutable artifact commitment instead of
-raw bytes. With a Runx token, `RUNX_API_TOKEN=... npx ausca commit file.pdf`
-returns the commitment the offer input carries; the library equivalent is
-`client.commit(bytes, mediaType)`.
+raw bytes. `npx ausca commit file.pdf` sends the bytes to Ausca's keyless
+temporary ingress and returns the commitment the offer input carries; the
+library equivalent is `client.commit(bytes, mediaType)`. Repeating the same
+bytes is idempotent. The active offer catalog sets the usable input limit.
+
+Successful paid state includes `receipt_ref.public_url`, an immutable
+hash-only proof of the Ausca service, public price, completion time, and
+receipt digest. It contains no request or result bytes, content digests, or
+access capabilities. Anyone holding the unguessable URL can read it.
 
 The full agent contract lives at <https://ausca.com/SKILL.md>; the active
 offers at <https://ausca.com/catalog.json>. The engine underneath is

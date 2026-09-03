@@ -1,22 +1,21 @@
 """The Ausca client: catalog-bound paid invocations.
 
 It resolves an offer's immutable binding from the live catalog, builds the
-exact envelope with a deterministic idempotency key, and pays the offer's
+exact envelope with a caller-stable idempotency key, and pays the offer's
 own payable resource through the configured payment authority. Rails are
 authority implementations, never client concerns.
 """
 
 from __future__ import annotations
 
-import hashlib
-import json
+import uuid
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
 from eth_account.signers.local import LocalAccount
 
-from ausca.artifacts import ArtifactCommitment, ArtifactStore
+from ausca.artifacts import ArtifactCommitment, ArtifactStore, AuscaArtifactStore
 from ausca.payment import (
     InertAuthority,
     LocalKeyAuthority,
@@ -100,7 +99,7 @@ class AuscaClient:
         self._origin = origin.rstrip("/")
         self._http = http or httpx.Client(timeout=60)
         self._payment: PaymentAuthority = payment or InertAuthority()
-        self._artifacts = artifacts
+        self._artifacts = artifacts or AuscaArtifactStore(origin=self._origin, http=self._http)
         self._catalog: dict[str, Any] | None = None
 
     @classmethod
@@ -180,16 +179,18 @@ class AuscaClient:
     ) -> dict[str, Any]:
         """The exact invocation envelope for one offer.
 
-        The default idempotency key derives from the offer and input, so an
-        uncertain retry of the same request can never mint a second purchase.
+        A fresh default key starts one intentional purchase. Supply the same
+        explicit key to recover or retry that purchase without minting another.
         """
         if idempotency_key is None:
-            preimage = json.dumps(
-                [offer.offer_id, offer.revision_digest, invocation_input],
-                sort_keys=True,
-                separators=(",", ":"),
-            ).encode()
-            idempotency_key = f"ausca-{hashlib.sha256(preimage).hexdigest()[:32]}"
+            idempotency_key = f"ausca-{uuid.uuid4()}"
+        key_bytes = idempotency_key.encode("utf-8")
+        if (
+            not 16 <= len(key_bytes) <= 128
+            or idempotency_key.strip() != idempotency_key
+            or any(ord(character) < 0x20 or ord(character) == 0x7F for character in idempotency_key)
+        ):
+            raise AuscaError("idempotency_key must be 16 to 128 clean UTF-8 bytes")
         return {
             "offer_id": offer.offer_id,
             "offer_revision": offer.revision,
@@ -240,6 +241,4 @@ class AuscaClient:
 
     def commit(self, data: bytes, media_type: str) -> ArtifactCommitment:
         """Commit input bytes through the configured artifact store."""
-        if self._artifacts is None:
-            raise AuscaError("no artifact store is configured; artifact-backed offers need one")
         return self._artifacts.commit(data, media_type)

@@ -2,15 +2,14 @@ import { readFile } from "node:fs/promises";
 import process from "node:process";
 
 import {
-  artifactsFromEnvironment,
   clientFromEnvironment,
   type Environment,
 } from "./env.js";
 import { serveMcp } from "./mcp.js";
 
 // The front-door verbs. Configuration is environment only: a signing key and
-// a mandatory per-call USD cap for paying verbs, a Runx token for artifact
-// commits, nothing else. Output is JSON on stdout.
+// a mandatory per-call USD cap for paying verbs, nothing else. Artifact
+// commits are keyless. Output is JSON on stdout.
 
 export interface CliEnvironment {
   readonly env: Environment;
@@ -23,12 +22,13 @@ const USAGE = `ausca: metered agent infrastructure services, paid per call
 
   ausca catalog                    active offers, prices, routes
   ausca price <offer-id>           published price policy
-  ausca invoke <offer-id> [input]  paid invocation; input inline, @file, or stdin
+  ausca invoke <offer-id> [input] [--idempotency-key <key>]
+                                     paid invocation; input inline, @file, or stdin
   ausca commit <file>              artifact commitment for document and media offers
   ausca mcp                        local MCP server over stdio
 
 Environment: AUSCA_PRIVATE_KEY and AUSCA_MAX_PAYMENT_USD pay invocations;
-AUSCA_NETWORK overrides the payment network; RUNX_API_TOKEN enables commit.`;
+AUSCA_NETWORK overrides the payment network; AUSCA_ORIGIN overrides the service.`;
 
 const MEDIA_TYPES: Readonly<Record<string, string>> = {
   pdf: "application/pdf",
@@ -58,6 +58,32 @@ const MEDIA_TYPES: Readonly<Record<string, string>> = {
 export function mediaTypeFor(name: string): string {
   const extension = name.toLowerCase().split(".").pop() ?? "";
   return MEDIA_TYPES[extension] ?? "application/octet-stream";
+}
+
+function invocationArguments(rest: readonly string[]): {
+  offerId: string;
+  inputArgument?: string;
+  idempotencyKey?: string;
+} {
+  const [offerId, ...arguments_] = rest;
+  if (!offerId) throw new Error("usage: ausca invoke <offer-id> [input] [--idempotency-key <key>]");
+  let inputArgument: string | undefined;
+  let idempotencyKey: string | undefined;
+  for (let index = 0; index < arguments_.length; index += 1) {
+    const argument = arguments_[index];
+    if (argument === "--idempotency-key") {
+      if (idempotencyKey !== undefined || !arguments_[index + 1]) {
+        throw new Error("--idempotency-key requires one value");
+      }
+      idempotencyKey = arguments_[index + 1];
+      index += 1;
+    } else if (inputArgument === undefined) {
+      inputArgument = argument;
+    } else {
+      throw new Error(`unexpected invoke argument ${argument}`);
+    }
+  }
+  return { offerId, inputArgument, idempotencyKey };
 }
 
 async function resolveInput(argument: string | undefined, environment: CliEnvironment): Promise<unknown> {
@@ -103,13 +129,10 @@ export async function runCli(argv: readonly string[], environment: CliEnvironmen
         return 0;
       }
       case "invoke": {
-        const [offerId, inputArgument] = rest;
-        if (!offerId) {
-          throw new Error("usage: ausca invoke <offer-id> [input]");
-        }
+        const { offerId, inputArgument, idempotencyKey } = invocationArguments(rest);
         const client = clientFromEnvironment(environment.env, { requirePayment: true });
         const input = await resolveInput(inputArgument, environment);
-        const outcome = await client.invoke(offerId, input);
+        const outcome = await client.invoke(offerId, input, { idempotencyKey });
         environment.write(JSON.stringify(outcome, null, 2));
         return 0;
       }
@@ -118,12 +141,9 @@ export async function runCli(argv: readonly string[], environment: CliEnvironmen
         if (!file) {
           throw new Error("usage: ausca commit <file>");
         }
-        const store = artifactsFromEnvironment(environment.env);
-        if (!store) {
-          throw new Error("artifact commits need RUNX_API_TOKEN in the environment");
-        }
+        const client = clientFromEnvironment(environment.env);
         const bytes = new Uint8Array(await readFile(file));
-        const commitment = await store.commit(bytes, mediaTypeFor(file));
+        const commitment = await client.commit(bytes, mediaTypeFor(file));
         environment.write(JSON.stringify(commitment, null, 2));
         return 0;
       }

@@ -31,8 +31,9 @@ print(outcome.payment.transaction)  # settlement proof
 `invoke` resolves the offer's immutable revision, schema digests, and
 payable route from the live catalog, reads the exact payment requirement,
 pays it if it fits the cap, and retries the same bytes with the same
-idempotency key. The default idempotency key derives from the offer and
-input, so an uncertain retry can never mint a second purchase.
+idempotency key. Each call starts with a fresh key. For recovery after an
+uncertain response, pass the same caller-owned `idempotency_key`; use a new
+key for another intentional purchase, even when its input is identical.
 
 A CLI ships with the package:
 
@@ -41,6 +42,9 @@ ausca catalog
 ausca price document.ocr
 AUSCA_PRIVATE_KEY=0x... AUSCA_MAX_PAYMENT_USD=0.50 \
   ausca invoke browser.session '{"duration_seconds":600}'
+# Reuse this key only to recover that same intended purchase:
+ausca invoke browser.session '{"duration_seconds":600}' \
+  --idempotency-key browser-attempt-20260903-0001
 ```
 
 ## Payment rails
@@ -56,9 +60,15 @@ configured authority can pay; nothing in it is vendor-specific.
 ## Artifact-backed offers
 
 Document and media offers take an immutable artifact commitment instead of
-raw bytes. With a Runx token, `RunxArtifactStore(token=...)` (or
-`RUNX_API_TOKEN=... ausca commit file.pdf`) commits bytes and returns the
-commitment the offer input carries.
+raw bytes. `ausca commit file.pdf` sends the bytes to Ausca's keyless
+temporary ingress and returns the commitment the offer input carries; the
+library equivalent is `client.commit(data, media_type)`. Repeating the same
+bytes is idempotent. The active offer catalog sets the usable input limit.
+
+Successful paid state includes `receipt_ref.public_url`, an immutable
+hash-only proof of the Ausca service, public price, completion time, and
+receipt digest. It contains no request or result bytes, content digests, or
+access capabilities. Anyone holding the unguessable URL can read it.
 
 The full agent contract lives at <https://ausca.com/SKILL.md>; discover the
 active offers at <https://ausca.com/catalog.json>. The npm equivalent is

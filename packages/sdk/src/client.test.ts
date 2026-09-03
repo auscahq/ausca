@@ -1,10 +1,11 @@
 import { createServer } from "node:http";
+import { createHash } from "node:crypto";
 
 import { privateKeyToAccount } from "viem/accounts";
 import { describe, expect, it } from "vitest";
 
 import { address } from "@ausca-internal/payable/testkit";
-import { ArtifactError, runxArtifactStore } from "./artifacts.js";
+import { ArtifactError } from "./artifacts.js";
 import { AuscaClient, OfferNotActiveError } from "./client.js";
 import { inertAuthority, localKeyAuthority, type PaymentAuthority } from "./payment.js";
 import { startAuscaService } from "./testkit.js";
@@ -89,39 +90,51 @@ describe("AuscaClient", () => {
     }
   });
 
-  it("derives a deterministic idempotency key from offer and input", async () => {
+  it("starts distinct purchases by default and preserves an explicit recovery key", async () => {
     const service = await startAuscaService();
     try {
       const client = new AuscaClient({ payment: inertAuthority(), origin: service.origin });
       const offer = await client.offer("echo.test");
       const first = await client.envelope(offer, { message: "same" });
       const second = await client.envelope(offer, { message: "same" });
-      const different = await client.envelope(offer, { message: "other" });
-      expect(first.idempotency_key).toBe(second.idempotency_key);
-      expect(first.idempotency_key).not.toBe(different.idempotency_key);
-      expect(String(first.idempotency_key)).toMatch(/^ausca-[0-9a-f]{32}$/);
+      const recovered = await client.envelope(
+        offer,
+        { message: "same" },
+        "purchase-20260903-0001",
+      );
+      expect(first.idempotency_key).not.toBe(second.idempotency_key);
+      expect(String(first.idempotency_key)).toMatch(/^ausca-[0-9a-f-]{36}$/u);
+      expect(recovered.idempotency_key).toBe("purchase-20260903-0001");
+      await expect(client.envelope(offer, {}, "too-short")).rejects.toThrow(
+        "16 to 128 clean UTF-8 bytes",
+      );
+      await expect(client.envelope(offer, {}, "🙂".repeat(40))).rejects.toThrow(
+        "16 to 128 clean UTF-8 bytes",
+      );
+      await expect(client.envelope(offer, {}, "purchase-20260903\n0001")).rejects.toThrow(
+        "16 to 128 clean UTF-8 bytes",
+      );
     } finally {
       await service.close();
     }
   });
 });
 
-describe("runxArtifactStore", () => {
-  it("allocates and hands off with digest-derived idempotency", async () => {
+describe("Ausca artifact ingress", () => {
+  it("commits keylessly with digest-derived idempotency", async () => {
     const operations: Record<string, unknown>[] = [];
     const server = createServer((request, response) => {
       const chunks: Buffer[] = [];
       request.on("data", (chunk) => chunks.push(chunk));
       request.on("end", () => {
         const body = JSON.parse(Buffer.concat(chunks).toString());
-        operations.push({ ...body, authorization: request.headers.authorization });
+        operations.push({ ...body, authorization: request.headers.authorization, path: request.url });
         response.writeHead(200, { "content-type": "application/json" });
         response.end(JSON.stringify({
-          operation: body.operation,
-          access: "mutate",
-          result: {
-            artifact_ref: `runx:artifact:sha256:${"ab".repeat(32)}`,
-            content_digest: body.input.content_digest ?? `sha256:${"ab".repeat(32)}`,
+          status: "stored",
+          artifact: {
+            artifact_ref: `runx:artifact:${body.content_digest}`,
+            content_digest: body.content_digest,
             media_type: "application/pdf",
             size_bytes: 3,
             created_at: "2026-09-03T00:00:00Z",
@@ -131,20 +144,22 @@ describe("runxArtifactStore", () => {
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     try {
-      const store = runxArtifactStore({
-        token: "runx-test-token",
+      const client = new AuscaClient({
+        payment: inertAuthority(),
         origin: `http://127.0.0.1:${address(server)}`,
       });
-      const commitment = await store.commit(new TextEncoder().encode("pdf"), "application/pdf");
-      expect(commitment.artifactRef).toBe(`runx:artifact:sha256:${"ab".repeat(32)}`);
-      expect(commitment.contentDigest).toMatch(/^sha256:[0-9a-f]{64}$/);
-      expect(operations).toHaveLength(2);
-      const [allocate, handoff] = operations as [Record<string, never>, Record<string, never>];
-      expect(allocate.operation).toBe("artifact.allocate");
-      expect(allocate.authorization).toBe("Bearer runx-test-token");
-      expect((allocate.input as { idempotency_key: string }).idempotency_key).toMatch(/^ausca-artifact-[0-9a-f]{32}$/);
-      expect(handoff.operation).toBe("artifact.handoff");
-      expect((handoff.input as { target_principal_id: string }).target_principal_id).toBe("ausca");
+      const commitment = await client.commit(new TextEncoder().encode("pdf"), "application/pdf");
+      const digest = createHash("sha256").update("pdf").digest("hex");
+      const requestDigest = createHash("sha256")
+        .update(`sha256:${digest}\napplication/pdf`)
+        .digest("hex");
+      expect(commitment.artifactRef).toBe(`runx:artifact:sha256:${digest}`);
+      expect(commitment.contentDigest).toBe(`sha256:${digest}`);
+      expect(operations).toHaveLength(1);
+      const [commit] = operations as [Record<string, never>];
+      expect(commit.path).toBe("/v1/artifacts");
+      expect(commit.authorization).toBeUndefined();
+      expect(commit.idempotency_key).toBe(`ausca-artifact-${requestDigest.slice(0, 32)}`);
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
@@ -157,14 +172,14 @@ describe("runxArtifactStore", () => {
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     try {
-      const store = runxArtifactStore({
-        token: "runx-test-token",
+      const client = new AuscaClient({
+        payment: inertAuthority(),
         origin: `http://127.0.0.1:${address(server)}`,
       });
-      await expect(store.commit(new TextEncoder().encode("pdf"), "application/pdf"))
+      await expect(client.commit(new TextEncoder().encode("pdf"), "application/pdf"))
         .rejects.toThrow(ArtifactError);
-      await expect(store.commit(new Uint8Array(), "application/pdf"))
-        .rejects.toThrow("empty artifact");
+      await expect(client.commit(new Uint8Array(), "application/pdf"))
+        .rejects.toThrow("1 to");
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }

@@ -36,9 +36,10 @@ describe("ausca mcp server", () => {
       expect(names).toContain("ausca_echo");
       expect(names).toContain("ausca_catalog");
       expect(names).toContain("ausca_price");
-      expect(names).not.toContain("ausca_commit_artifact");
+      expect(names).toContain("ausca_commit_artifact");
       const echo = tools.find((tool) => tool.name === "ausca_echo");
       expect(echo?.inputSchema.required).toEqual(["message"]);
+      expect(echo?.inputSchema.properties).toHaveProperty("ausca_idempotency_key");
       expect(echo?.description).toContain("$0.01 per call");
       await client.close();
     } finally {
@@ -55,10 +56,17 @@ describe("ausca mcp server", () => {
         AUSCA_MAX_PAYMENT_USD: "0.05",
       });
       const outcome = firstText(
-        await client.callTool({ name: "ausca_echo", arguments: { message: "paid" } }),
+        await client.callTool({
+          name: "ausca_echo",
+          arguments: {
+            message: "paid",
+            ausca_idempotency_key: "mcp-purchase-20260903-0001",
+          },
+        }),
       ) as { payment: { success: boolean }; result: { result: { echo: { message: string } } } };
       expect(outcome.payment.success).toBe(true);
       expect(outcome.result.result.echo.message).toBe("paid");
+      expect(outcome.result.result.echo).not.toHaveProperty("ausca_idempotency_key");
       expect(service.requests).toEqual({ unsigned: 1, signed: 1 });
       await client.close();
     } finally {
@@ -82,6 +90,33 @@ describe("ausca mcp server", () => {
         await client.callTool({ name: "ausca_catalog", arguments: {} }),
       ) as { offer_id: string }[];
       expect(catalog[0].offer_id).toBe("echo.test");
+      await client.close();
+    } finally {
+      await service.close();
+    }
+  });
+
+  it("commits canonical base64 keylessly and rejects ambiguous encoding", async () => {
+    const service = await startAuscaService();
+    try {
+      const client = await connectedClient({ AUSCA_ORIGIN: service.origin });
+      const result = await client.callTool({
+        name: "ausca_commit_artifact",
+        arguments: { data_base64: "cGRm", media_type: "application/pdf" },
+      });
+      expect(result.isError).not.toBe(true);
+      const committed = firstText(result) as { artifactRef: string };
+      expect(committed.artifactRef).toMatch(/^runx:artifact:sha256:/u);
+      expect(service.artifactRequests).toHaveLength(1);
+      expect(service.artifactRequests[0].authorization).toBeUndefined();
+
+      const invalid = await client.callTool({
+        name: "ausca_commit_artifact",
+        arguments: { data_base64: "cGRm\n", media_type: "application/pdf" },
+      });
+      expect(invalid.isError).toBe(true);
+      expect(JSON.stringify(firstText(invalid))).toContain("canonical standard base64");
+      expect(service.artifactRequests).toHaveLength(1);
       await client.close();
     } finally {
       await service.close();

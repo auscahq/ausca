@@ -2,14 +2,13 @@ import {
   AuscaClient,
   inertAuthority,
   localKeyAuthority,
-  runxArtifactStore,
-  type ArtifactStore,
   type PaymentAuthority,
 } from "@ausca/sdk";
 
 // Environment is the only configuration surface of the front door: a signing
-// key and a mandatory per-call USD cap for paying, a Runx token for artifact
-// commits. Refusing to guess a spend limit is deliberate.
+// key and a mandatory per-call USD cap for paying. Artifact commits are
+// keyless through the configured Ausca origin. Refusing to guess a spend
+// limit is deliberate.
 
 export type Environment = Readonly<Record<string, string | undefined>>;
 
@@ -31,11 +30,6 @@ export function paymentFromEnvironment(env: Environment): PaymentAuthority | nul
   });
 }
 
-export function artifactsFromEnvironment(env: Environment): ArtifactStore | undefined {
-  const token = env.RUNX_API_TOKEN;
-  return token ? runxArtifactStore({ token }) : undefined;
-}
-
 export function clientFromEnvironment(
   env: Environment,
   options?: { requirePayment?: boolean },
@@ -48,7 +42,6 @@ export function clientFromEnvironment(
   }
   return new AuscaClient({
     payment: payment ?? inertAuthority(),
-    artifacts: artifactsFromEnvironment(env),
     origin: env.AUSCA_ORIGIN,
   });
 }

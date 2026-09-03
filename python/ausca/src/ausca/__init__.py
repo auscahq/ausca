@@ -1,11 +1,11 @@
 """Ausca: metered agent infrastructure services, paid per call."""
 
 from ausca.artifacts import (
-    RUNX_ORIGIN,
+    MAX_ARTIFACT_BYTES,
     ArtifactCommitment,
     ArtifactError,
     ArtifactStore,
-    RunxArtifactStore,
+    AuscaArtifactStore,
 )
 from ausca.client import (
     CATALOG_URL,
@@ -29,6 +29,7 @@ __all__ = [
     "ArtifactCommitment",
     "ArtifactError",
     "ArtifactStore",
+    "AuscaArtifactStore",
     "AuscaClient",
     "AuscaError",
     "CATALOG_URL",
@@ -41,7 +42,6 @@ __all__ = [
     "PaymentReceipt",
     "Price",
     "PriceOption",
-    "RUNX_ORIGIN",
-    "RunxArtifactStore",
+    "MAX_ARTIFACT_BYTES",
     "SKILL_URL",
 ]

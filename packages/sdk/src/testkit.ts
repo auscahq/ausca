@@ -22,6 +22,10 @@ export interface AuscaServiceOptions {
 export interface AuscaService {
   readonly origin: string;
   readonly requests: { signed: number; unsigned: number };
+  readonly artifactRequests: ReadonlyArray<{
+    authorization?: string;
+    body: Record<string, unknown>;
+  }>;
   close(): Promise<void>;
 }
 
@@ -83,6 +87,10 @@ function catalogDocument(origin: string): Record<string, unknown> {
 export async function startAuscaService(options?: AuscaServiceOptions): Promise<AuscaService> {
   const amount = options?.amountAtomic ?? "10000";
   const requests = { signed: 0, unsigned: 0 };
+  const artifactRequests: Array<{
+    authorization?: string;
+    body: Record<string, unknown>;
+  }> = [];
   const server: Server = createServer((request, response) => {
     const chunks: Buffer[] = [];
     request.on("data", (chunk) => chunks.push(chunk));
@@ -103,6 +111,26 @@ export async function startAuscaService(options?: AuscaServiceOptions): Promise<
         return json(200, {
           invocation_id: path.split("/").pop(),
           state: "completed",
+        });
+      }
+      if (request.method === "POST" && path === "/v1/artifacts") {
+        const body = JSON.parse(Buffer.concat(chunks).toString() || "{}") as Record<string, unknown>;
+        artifactRequests.push({
+          ...(request.headers.authorization
+            ? { authorization: request.headers.authorization }
+            : {}),
+          body,
+        });
+        const data = Buffer.from(String(body.data_base64), "base64");
+        return json(200, {
+          status: "stored",
+          artifact: {
+            artifact_ref: `runx:artifact:${body.content_digest}`,
+            content_digest: body.content_digest,
+            media_type: body.media_type,
+            size_bytes: data.length,
+            created_at: "2026-09-03T00:00:00Z",
+          },
         });
       }
       if (request.method === "POST" && path === "/v1/echo") {
@@ -132,6 +160,7 @@ export async function startAuscaService(options?: AuscaServiceOptions): Promise<
   return {
     origin: `http://127.0.0.1:${address(server)}`,
     requests,
+    artifactRequests,
     close: () => new Promise((resolve) => server.close(() => resolve())),
   };
 }
