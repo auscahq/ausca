@@ -6,10 +6,10 @@
   "homepage": "https://ausca.com",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/auscahq/ausca-integrations.git",
+    "url": "git+https://github.com/auscahq/ausca.git",
     "directory": "packages/ausca"
   },
-  "bugs": "https://github.com/auscahq/ausca-integrations/issues",
+  "bugs": "https://github.com/auscahq/ausca/issues",
   "mcpName": "com.ausca/agent-services",
   "type": "module",
   "keywords": ["ausca", "agents", "payments", "x402", "mcp", "cli"],

@@ -22,8 +22,8 @@ ausca = "ausca.cli:main"
 [project.urls]
 Homepage = "https://ausca.com"
 Documentation = "https://ausca.com/docs"
-Repository = "https://github.com/auscahq/ausca-integrations"
-Issues = "https://github.com/auscahq/ausca-integrations/issues"
+Repository = "https://github.com/auscahq/ausca"
+Issues = "https://github.com/auscahq/ausca/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -1,4 +1,4 @@
-# ausca-integrations
+# Ausca
 
 The buyer-side packages for [Ausca](https://ausca.com) metered agent services,
 plus vendor-neutral framework adapters that let agent tools pay for HTTP 402

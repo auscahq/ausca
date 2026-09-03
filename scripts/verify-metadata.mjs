@@ -17,7 +17,7 @@ const [server, frontDoor, sdk, lockfile, context7, glama] = await Promise.all([
 if (server.name !== frontDoor.mcpName || server.websiteUrl !== "https://ausca.com") {
   fail("MCP identity differs from the npm package or public origin");
 }
-if (server.repository?.url !== "https://github.com/auscahq/ausca-integrations") {
+if (server.repository?.url !== "https://github.com/auscahq/ausca") {
   fail("MCP repository is not the public integration repository");
 }
 if (server.remotes?.length !== 1 || server.remotes[0]?.type !== "streamable-http" ||

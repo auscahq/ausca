@@ -6,10 +6,10 @@
   "homepage": "https://ausca.com",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/auscahq/ausca-integrations.git",
+    "url": "git+https://github.com/auscahq/ausca.git",
     "directory": "packages/sdk"
   },
-  "bugs": "https://github.com/auscahq/ausca-integrations/issues",
+  "bugs": "https://github.com/auscahq/ausca/issues",
   "type": "module",
   "keywords": [
     "ausca",
