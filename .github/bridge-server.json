@@ -23,38 +23,5 @@
       "type": "streamable-http",
       "url": "https://ausca.com/mcp"
     }
-  ],
-  "packages": [
-    {
-      "registryType": "npm",
-      "identifier": "ausca",
-      "version": "0.0.3",
-      "runtimeHint": "npx",
-      "packageArguments": [
-        {
-          "type": "positional",
-          "value": "mcp"
-        }
-      ],
-      "environmentVariables": [
-        {
-          "name": "AUSCA_PRIVATE_KEY",
-          "description": "Optional local wallet key for paid tools. Discovery and artifact commit remain keyless.",
-          "isRequired": false,
-          "isSecret": true,
-          "format": "string"
-        },
-        {
-          "name": "AUSCA_MAX_PAYMENT_USD",
-          "description": "Required positive per-call USD cap whenever AUSCA_PRIVATE_KEY is configured.",
-          "isRequired": false,
-          "isSecret": false,
-          "format": "number"
-        }
-      ],
-      "transport": {
-        "type": "stdio"
-      }
-    }
   ]
 }
