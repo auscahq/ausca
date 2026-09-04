@@ -1,0 +1,60 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.auscahq/ausca",
+  "title": "Ausca",
+  "description": "Pay-per-call APIs and MCP services for agents, no accounts or keys, with verifiable receipts.",
+  "version": "1.2.0",
+  "websiteUrl": "https://ausca.com",
+  "repository": {
+    "url": "https://github.com/auscahq/ausca",
+    "source": "github"
+  },
+  "icons": [
+    {
+      "src": "https://ausca.com/favicon.svg",
+      "mimeType": "image/svg+xml",
+      "sizes": [
+        "any"
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://ausca.com/mcp"
+    }
+  ],
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "ausca",
+      "version": "0.0.3",
+      "runtimeHint": "npx",
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "AUSCA_PRIVATE_KEY",
+          "description": "Optional local wallet key for paid tools. Discovery and artifact commit remain keyless.",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "AUSCA_MAX_PAYMENT_USD",
+          "description": "Required positive per-call USD cap whenever AUSCA_PRIVATE_KEY is configured.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "number"
+        }
+      ],
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
