@@ -5,7 +5,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build -w @ausca/sdk && npm run build --workspaces --if-present",
     "test": "npm run verify:metadata && npm run test --workspaces --if-present",
     "verify:metadata": "node scripts/verify-metadata.mjs",
     "sync:skills": "node scripts/sync-skills.mjs",

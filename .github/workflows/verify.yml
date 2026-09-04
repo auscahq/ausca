@@ -36,7 +36,7 @@ jobs:
           cache-dependency-path: python/ausca/pyproject.toml
 
       - name: Verify TypeScript packages
-        run: npm ci && npm test && npm run build && npm audit --audit-level=high
+        run: npm ci && npm run build && npm test && npm audit --audit-level=high
 
       - name: Verify Python package
         run: |
