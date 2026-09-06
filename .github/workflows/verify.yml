@@ -38,8 +38,9 @@ jobs:
       - name: Verify TypeScript packages
         run: npm ci && npm run build && npm test && npm audit --audit-level=high
 
-      - name: Verify Python package
+      - name: Verify Python packages
         run: |
-          python -m pip install --disable-pip-version-check build pytest ./python/ausca
-          python -m pytest python/ausca/tests
+          python -m pip install --disable-pip-version-check build pytest ./python/ausca ./python/langchain-ausca
+          python -m pytest python/ausca/tests python/langchain-ausca/tests
           python -m build python/ausca
+          python -m build python/langchain-ausca
