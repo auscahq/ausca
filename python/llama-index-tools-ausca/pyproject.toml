@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llama-index-tools-ausca"
+version = "0.1.0"
+description = "LlamaIndex tools that pay for HTTP 402 APIs over x402 instead of carrying API keys. Works with any x402 v2 resource; Ausca is the default example."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+keywords = ["llama-index", "x402", "payments", "agents", "tools", "ausca"]
+dependencies = [
+  "llama-index-core>=0.12",
+  "httpx>=0.28",
+  "x402[evm]>=2.21.0",
+  "eth-account>=0.13",
+]
+
+[project.urls]
+Homepage = "https://ausca.com"
+Repository = "https://github.com/auscahq/ausca"
+
+[tool.setuptools.packages.find]
+where = ["src"]
