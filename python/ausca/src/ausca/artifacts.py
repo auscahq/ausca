@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import re
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -16,6 +17,7 @@ import httpx
 
 AUSCA_ORIGIN = "https://ausca.com"
 MAX_ARTIFACT_BYTES = 25 * 1024 * 1024
+ARTIFACT_REF_PATTERN = re.compile(r"^runx:artifact:sha256:[0-9a-f]{64}$")
 
 
 class ArtifactError(Exception):
@@ -83,9 +85,13 @@ class AuscaArtifactStore:
             "artifact_ref", "content_digest", "created_at", "media_type", "size_bytes"
         }:
             raise ArtifactError("artifact ingress returned malformed evidence")
-        artifact_ref = f"runx:artifact:{content_digest}"
+        # The service mints its own storage identity, so the reference is the
+        # one field the caller cannot derive. Everything the local bytes prove
+        # is checked against them; the minted reference is checked for shape.
+        artifact_ref = evidence["artifact_ref"]
         if (
-            evidence["artifact_ref"] != artifact_ref
+            not isinstance(artifact_ref, str)
+            or not ARTIFACT_REF_PATTERN.match(artifact_ref)
             or evidence["content_digest"] != content_digest
             or evidence["media_type"] != media_type
             or evidence["size_bytes"] != len(data)

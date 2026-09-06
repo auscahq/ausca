@@ -30,7 +30,7 @@ const account = privateKeyToAccount(process.env.WALLET_PRIVATE_KEY as `0x${strin
 const extractText = payableTool({
   name: "extract_document_text",
   description:
-    "Extracts normalized text from a scanned document for $0.30. Input is the immutable artifact commitment of the uploaded document.",
+    "Extracts normalized text from a scanned document for $0.25. Input is the immutable artifact commitment of the uploaded document.",
   schema: z.object({
     artifact_ref: z.string(),
     content_digest: z.string(),

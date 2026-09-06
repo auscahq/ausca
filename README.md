@@ -30,12 +30,12 @@ contract is [ausca.com/SKILL.md](https://ausca.com/SKILL.md).
 
 | Service | What it does | Price (USD) |
 | --- | --- | --- |
-| Document OCR | Normalized text with line confidence from one committed document | $0.30 per document |
-| Document Analysis | Normalized forms, tables, signatures, or layout from one committed document | $0.35 to $0.80, sized by document bytes |
-| Media Transcription | Normalized transcript of one committed audio or video file | $0.45 to $1.35, sized by media bytes |
-| Browser Session | Remote browser with standard CDP access | $0.10 / 10 min, $0.15 / 30 min, $0.25 / 60 min |
-| Agent Inbox | A renewable receive-only email address your agent owns | $0.10 / hour, $0.25 / day, $1.05 / week |
-| Inbox Extension | Add time to an active inbox without changing its address | $0.10 / hour, $0.25 / day, $1.05 / week |
+| Document OCR | Normalized text with line confidence from one committed document | $0.25 per document |
+| Document Analysis | Normalized forms, tables, signatures, or layout from one committed document | $0.30 to $0.75, sized by document bytes |
+| Media Transcription | Normalized transcript of one committed audio or video file | $0.40 to $1.30, sized by media bytes |
+| Browser Session | Remote browser with standard CDP access | $0.05 / 10 min, $0.10 / 30 min, $0.20 / 60 min |
+| Agent Inbox | A renewable receive-only email address your agent owns | $0.05 / hour, $0.20 / day, $1.00 / week |
+| Inbox Extension | Add time to an active inbox without changing its address | $0.05 / hour, $0.20 / day, $1.00 / week |
 
 Prices are the public catalog values at the time of writing; the live
 catalog is authoritative.

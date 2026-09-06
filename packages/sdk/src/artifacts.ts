@@ -27,6 +27,7 @@ export interface AuscaArtifactStoreOptions {
 
 const DEFAULT_ORIGIN = "https://ausca.com";
 export const MAX_ARTIFACT_BYTES = 25 * 1024 * 1024;
+const ARTIFACT_REF_PATTERN = /^runx:artifact:sha256:[0-9a-f]{64}$/u;
 
 /**
  * Commits bytes through Ausca's keyless, temporary artifact ingress. The
@@ -77,14 +78,18 @@ export function auscaArtifactStore(options: AuscaArtifactStoreOptions = {}): Art
           ])) {
         throw new ArtifactError("artifact ingress returned malformed evidence");
       }
+      // The service mints its own storage identity, so the reference is the
+      // one field the caller cannot derive. Everything the local bytes prove
+      // is checked against them; the minted reference is checked for shape.
       const evidence = decoded.artifact;
-      const expectedRef = `runx:artifact:${contentDigest}`;
-      if (evidence.artifact_ref !== expectedRef || evidence.content_digest !== contentDigest ||
+      if (typeof evidence.artifact_ref !== "string" ||
+          !ARTIFACT_REF_PATTERN.test(evidence.artifact_ref) ||
+          evidence.content_digest !== contentDigest ||
           evidence.media_type !== mediaType || evidence.size_bytes !== bytes.length ||
           typeof evidence.created_at !== "string") {
         throw new ArtifactError("artifact ingress returned mismatched evidence");
       }
-      return { artifactRef: expectedRef, contentDigest, mediaType };
+      return { artifactRef: evidence.artifact_ref, contentDigest, mediaType };
     },
   };
 }

@@ -71,6 +71,14 @@ export interface InvocationResult {
   readonly status: number;
 }
 
+/** Short-lived download access for one artifact the service holds. */
+export interface ArtifactAccess extends ArtifactCommitment {
+  readonly sizeBytes: number;
+  readonly createdAt: string;
+  readonly downloadUrl: string;
+  readonly expiresAt: string;
+}
+
 export interface Catalog {
   readonly offers: readonly Record<string, unknown>[];
   readonly document: Record<string, unknown>;
@@ -257,5 +265,36 @@ export class AuscaClient {
   /** Commit input bytes through the configured artifact store. */
   async commit(bytes: Uint8Array, mediaType: string): Promise<ArtifactCommitment> {
     return this.artifacts.commit(bytes, mediaType);
+  }
+
+  /**
+   * Mint a 60-second download URL for an artifact this service holds, such
+   * as an invocation's `output_artifact`. Verify downloaded bytes against
+   * `contentDigest`; the URL itself is not proof of content.
+   */
+  async artifactAccess(artifactRef: string, idempotencyKey?: string): Promise<ArtifactAccess> {
+    const response = await this.baseFetch(
+      `${this.origin}/v1/artifacts/${encodeURIComponent(artifactRef)}/access`,
+      {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey ?? `ausca-${crypto.randomUUID()}` },
+      },
+    );
+    const body = (await response.json().catch(() => null)) as
+      | { status?: string; artifact?: Record<string, unknown> }
+      | null;
+    if (!response.ok || body?.status !== "ready" || body.artifact === undefined) {
+      throw new AuscaError(`artifact access answered ${response.status}`);
+    }
+    const artifact = body.artifact;
+    return {
+      artifactRef: artifact.artifact_ref as string,
+      contentDigest: artifact.content_digest as string,
+      mediaType: artifact.media_type as string,
+      sizeBytes: artifact.size_bytes as number,
+      createdAt: artifact.created_at as string,
+      downloadUrl: artifact.download_url as string,
+      expiresAt: artifact.expires_at as string,
+    };
   }
 }

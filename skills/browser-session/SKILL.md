@@ -12,13 +12,13 @@ It is browser infrastructure, not a browser agent.
 ## What the purchase includes
 
 One paid invocation creates or exactly replays one browser lease. Choose the
-duration before approval; the all-in public skill checkout prices are:
+duration before approval; the prices are:
 
-- 10 minutes: $0.10 USD
-- 30 minutes: $0.15 USD
-- 60 minutes: $0.25 USD
+- 10 minutes: $0.05 USD
+- 30 minutes: $0.10 USD
+- 60 minutes: $0.20 USD
 
-Preparation binds the exact duration and checkout amount. The
+Preparation binds the exact duration and amount. The
 result includes a session id, expiry, and an opaque bearer capability. Status,
 CDP connection creation, and close do not charge again.
 
@@ -73,7 +73,8 @@ paid response is uncertain, replay that exact purchase; never mint a second
 payment identity. Changed duration or terms under an existing identity are a
 conflict. Expiry, exhausted ticket issues, unavailable capacity, invalid
 authority, and an unverifiable provider result or receipt are stop conditions,
-not permission to bypass the lease path.
+not permission to bypass the lease path. A failed invocation reports
+`failure.code` and `failure.message`; the payment is refunded.
 
 Successful paid state returns `receipt_ref.public_url`, an immutable hash-only
 proof of the service, public price, completion time, and receipt digest. It

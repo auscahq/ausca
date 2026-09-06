@@ -6,9 +6,9 @@ description: Transcribe one immutable audio or video artifact through Ausca's me
 # Ausca Media Transcription
 
 Use Media Transcription when an agent needs normalized text from one audio or
-video artifact. The service is asynchronous. Its current all-in public checkout
-is $0.45-$1.35 USD for an artifact up to 10 MiB; preparation fixes the exact
-amount before approval.
+video artifact. The service is asynchronous. The price is $0.40 to $1.30 USD
+for an artifact up to 10 MiB, sized by artifact bytes; preparation fixes the
+exact amount before approval.
 
 The result is plain transcript text with its language and source binding. This
 service does not provide diarization, speaker labels, word timestamps,
@@ -54,9 +54,14 @@ language selection is not part of this contract. Media bytes do not belong in
 the invocation JSON.
 
 The normalized text is bounded to 8,000,000 characters. Results up to 64 KiB
-may be inline; a larger result is returned by immutable artifact reference.
-Result artifacts are retained for 24 hours, so retrieve needed output before
-that deadline. Durable execution is bounded to two hours.
+arrive inline as `output`; a larger result arrives as `output_artifact`, an
+immutable artifact reference with its content digest and size. Mint a
+60-second download URL for it with `POST /v1/artifacts/{artifact_ref}/access`
+(`Idempotency-Key` required) and verify the downloaded bytes against
+`content_digest`. Result artifacts are retained for 24 hours, so retrieve
+needed output before that deadline. Durable execution is bounded to two hours.
+A failed invocation reports `failure.code` and `failure.message`; the payment
+is refunded.
 
 ## Prepare and purchase
 

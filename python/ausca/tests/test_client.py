@@ -48,6 +48,9 @@ class _Resource(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         length = int(self.headers.get("content-length", 0))
         request_body = json.loads(self.rfile.read(length) or b"{}")
+        if self.path.startswith("/v1/artifacts/") and self.path.endswith("/access"):
+            self._artifact_access()
+            return
         if "PAYMENT-SIGNATURE" not in self.headers:
             type(self).seen["unsigned"] = type(self).seen.get("unsigned", 0) + 1
             challenge = {
@@ -100,6 +103,34 @@ class _Resource(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
+    def _artifact_access(self) -> None:
+        # Access repeats the artifact evidence so the caller verifies the
+        # downloaded bytes; the URL is not proof of content.
+        if "Idempotency-Key" not in self.headers:
+            body = json.dumps({"status": "error", "code": "invalid_request"}).encode()
+            self.send_response(400)
+        else:
+            body = json.dumps(
+                {
+                    "status": "ready",
+                    "artifact": {
+                        "artifact_ref": self.path.split("/")[3],
+                        "content_digest": "sha256:" + "c" * 64,
+                        "media_type": "application/json",
+                        "size_bytes": 70000,
+                        "created_at": "2026-09-06T00:00:00Z",
+                        "download_url": "https://artifacts.example/o/1?sig=2",
+                        "expires_at": "2026-09-06T00:01:00Z",
+                    },
+                }
+            ).encode()
+            self.send_response(200)
+        self.send_header("content-type", "application/json")
+        self.send_header("content-length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
 @pytest.fixture()
 def resource():
     _Resource.seen = {}
@@ -122,6 +153,16 @@ def test_invoke_pays_within_cap_and_returns_settlement_proof(resource: str) -> N
     assert outcome.payment is not None and outcome.payment.success
     assert outcome.payment.transaction.startswith("0x")
     assert _Resource.seen == {"unsigned": 1, "signed": 1}
+
+
+def test_artifact_access_mints_a_download_url_without_paying(resource: str) -> None:
+    client = AuscaClient.with_local_key(private_key=PRIVATE_KEY, max_payment_usd=0.25, origin=resource)
+    artifact_ref = "runx:artifact:sha256:" + "a" * 64
+    access = client.artifact_access(artifact_ref, "ausca-access-recovery-key-1")
+    assert access["artifact_ref"] == artifact_ref
+    assert access["download_url"] == "https://artifacts.example/o/1?sig=2"
+    assert access["expires_at"] == "2026-09-06T00:01:00Z"
+    assert _Resource.seen == {}
 
 
 def test_new_calls_get_distinct_keys_and_explicit_recovery_key_is_preserved(resource: str) -> None:

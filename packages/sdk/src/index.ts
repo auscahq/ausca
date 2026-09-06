@@ -35,6 +35,7 @@ export {
   ORIGIN,
   RefusalError,
   SKILL_URL,
+  type ArtifactAccess,
   type AuscaClientOptions,
   type Catalog,
   type InvocationResult,

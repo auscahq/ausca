@@ -6,8 +6,8 @@ description: Extract normalized text from one immutable document through Ausca's
 # Ausca Document OCR
 
 Use Document OCR when an agent needs normalized text and line confidence from
-one scanned PDF or page image. The all-in public skill checkout is $0.30 USD.
-The service may complete inside the bounded 90-second wait or continue under the
+one scanned PDF or page image. The price is $0.25 USD per admitted call. The
+service may complete inside the bounded 90-second wait or continue under the
 same invocation.
 
 Use Document Analysis instead when forms, tables, signatures, or layout are the
@@ -43,10 +43,17 @@ Supply one immutable artifact commitment with `artifact_ref`, matching
 `image/jpeg`, `image/png`, or `image/tiff`. The artifact may be at most 10 MiB.
 Document bytes do not belong in the invocation JSON.
 
-The result contains normalized text, page lines, confidence values, an output
-digest, and delivery metadata. Results up to 64 KiB may be inline; a larger
-result is returned by immutable artifact reference. Result artifacts are
+The result is one `ausca.document_ocr.output.v1` document: `source_digest`,
+normalized `text`, and `lines` with per-line confidence and page. The
+invocation state carries its `output_digest`. Results up to 64 KiB arrive
+inline as `output`; a larger result arrives as `output_artifact`, an immutable
+artifact reference with its content digest and size, whose bytes are that
+same document. Mint a 60-second download URL for it with
+`POST /v1/artifacts/{artifact_ref}/access` (`Idempotency-Key` required) and
+verify the downloaded bytes against `content_digest`. Result artifacts are
 retained for 24 hours, so copy or process needed output before that deadline.
+A failed invocation reports `failure.code` and `failure.message`; the payment
+is refunded.
 
 ## Authority and purchase
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -171,7 +172,10 @@ class _ArtifactService(BaseHTTPRequestHandler):
             {
                 "status": "stored",
                 "artifact": {
-                    "artifact_ref": "runx:artifact:" + body["content_digest"],
+                    "artifact_ref": "runx:artifact:sha256:"
+                    + hashlib.sha256(
+                        ("storage\n" + body["content_digest"]).encode()
+                    ).hexdigest(),
                     "content_digest": body["content_digest"],
                     "media_type": "application/pdf",
                     "size_bytes": 3,
@@ -194,8 +198,11 @@ def test_ausca_artifact_store_commits_keylessly() -> None:
     try:
         client = AuscaClient(origin=f"http://127.0.0.1:{server.server_port}")
         commitment = client.commit(b"pdf", "application/pdf")
-        assert commitment.artifact_ref.startswith("runx:artifact:sha256:")
-        assert commitment.content_digest.startswith("sha256:")
+        minted = hashlib.sha256(
+            b"storage\nsha256:" + hashlib.sha256(b"pdf").hexdigest().encode()
+        ).hexdigest()
+        assert commitment.artifact_ref == "runx:artifact:sha256:" + minted
+        assert commitment.content_digest == "sha256:" + hashlib.sha256(b"pdf").hexdigest()
         [commit] = _ArtifactService.operations
         assert commit["path"] == "/v1/artifacts"
         assert commit["authorization"] is None

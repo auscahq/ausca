@@ -33,7 +33,7 @@ const result = await generateText({
     // https://ausca.com/catalog.json (offer document.ocr).
     extract_document_text: x402Tool({
       description:
-        "Extracts normalized text from a scanned document for $0.30. Input is the immutable artifact commitment of the uploaded document.",
+        "Extracts normalized text from a scanned document for $0.25. Input is the immutable artifact commitment of the uploaded document.",
       inputSchema: z.object({
         artifact_ref: z.string(),
         content_digest: z.string(),

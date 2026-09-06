@@ -6,8 +6,8 @@ description: Extract structured document data through Ausca's measured asynchron
 # Ausca Document Analysis
 
 Use Document Analysis when an agent needs normalized forms, tables, signatures,
-or layout from one PDF or page image. The service is asynchronous. Its current
-all-in public checkout is $0.35-$0.80 USD for an artifact up to 10 MiB;
+or layout from one PDF or page image. The service is asynchronous. The price
+is $0.30 to $0.75 USD for an artifact up to 10 MiB, sized by artifact bytes;
 preparation fixes the exact amount before approval.
 
 Use Document OCR when normalized text and line confidence are enough. Analysis
@@ -44,9 +44,16 @@ Supply one immutable artifact commitment with `artifact_ref`, matching
 may be at most 10 MiB; document bytes do not belong in invocation JSON.
 
 The result is a manifest of one to 32 ordered page artifacts. Each page entry
-binds its page index, artifact reference, content digest, and size. Result
-artifacts are retained for 24 hours. Retrieve every page needed by downstream
-work and validate it against the linked schema before that deadline.
+binds its page index, artifact reference, content digest, and size. A manifest
+up to 64 KiB arrives inline as `output`; a larger one arrives as
+`output_artifact`, an immutable artifact reference with its content digest and
+size. Mint a 60-second download URL for any page or result artifact with
+`POST /v1/artifacts/{artifact_ref}/access` (`Idempotency-Key` required) and
+verify the downloaded bytes against `content_digest`. Result artifacts are
+retained for 24 hours. Retrieve every page needed by downstream work and
+validate it against the linked schema before that deadline. A failed
+invocation reports `failure.code` and `failure.message`; the payment is
+refunded.
 
 ## Prepare and purchase
 

@@ -48,6 +48,27 @@ describe("AuscaClient", () => {
     }
   });
 
+  it("mints artifact access for a referenced result without paying", async () => {
+    const service = await startAuscaService();
+    try {
+      const client = new AuscaClient({ payment: inertAuthority(), origin: service.origin });
+      const artifactRef = `runx:artifact:sha256:${"a".repeat(64)}`;
+      const access = await client.artifactAccess(artifactRef, "ausca-access-recovery-key-1");
+      expect(access).toEqual({
+        artifactRef,
+        contentDigest: `sha256:${"c".repeat(64)}`,
+        mediaType: "application/json",
+        sizeBytes: 70_000,
+        createdAt: "2026-09-06T00:00:00Z",
+        downloadUrl: "https://artifacts.example/o/1?sig=2",
+        expiresAt: "2026-09-06T00:01:00Z",
+      });
+      expect(service.requests).toEqual({ unsigned: 0, signed: 0 });
+    } finally {
+      await service.close();
+    }
+  });
+
   it("refuses to pay above the cap before anything is signed", async () => {
     const service = await startAuscaService({ amountAtomic: "5000000" });
     try {
@@ -133,7 +154,9 @@ describe("Ausca artifact ingress", () => {
         response.end(JSON.stringify({
           status: "stored",
           artifact: {
-            artifact_ref: `runx:artifact:${body.content_digest}`,
+            artifact_ref: `runx:artifact:sha256:${createHash("sha256")
+              .update(`storage\n${body.content_digest}`)
+              .digest("hex")}`,
             content_digest: body.content_digest,
             media_type: "application/pdf",
             size_bytes: 3,
@@ -153,7 +176,10 @@ describe("Ausca artifact ingress", () => {
       const requestDigest = createHash("sha256")
         .update(`sha256:${digest}\napplication/pdf`)
         .digest("hex");
-      expect(commitment.artifactRef).toBe(`runx:artifact:sha256:${digest}`);
+      const mintedDigest = createHash("sha256")
+        .update(`storage\nsha256:${digest}`)
+        .digest("hex");
+      expect(commitment.artifactRef).toBe(`runx:artifact:sha256:${mintedDigest}`);
       expect(commitment.contentDigest).toBe(`sha256:${digest}`);
       expect(operations).toHaveLength(1);
       const [commit] = operations as [Record<string, never>];

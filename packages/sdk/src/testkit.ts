@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createServer, type Server } from "node:http";
 
 import {
@@ -113,6 +114,25 @@ export async function startAuscaService(options?: AuscaServiceOptions): Promise<
           state: "completed",
         });
       }
+      if (request.method === "POST" && path?.startsWith("/v1/artifacts/") && path.endsWith("/access")) {
+        if (!request.headers["idempotency-key"]) {
+          return json(400, { status: "error", code: "invalid_request", message: "Request is invalid." });
+        }
+        // Access repeats the artifact evidence so the caller verifies the
+        // downloaded bytes; the URL is not proof of content.
+        return json(200, {
+          status: "ready",
+          artifact: {
+            artifact_ref: decodeURIComponent(path.split("/")[3] ?? ""),
+            content_digest: `sha256:${"c".repeat(64)}`,
+            media_type: "application/json",
+            size_bytes: 70_000,
+            created_at: "2026-09-06T00:00:00Z",
+            download_url: "https://artifacts.example/o/1?sig=2",
+            expires_at: "2026-09-06T00:01:00Z",
+          },
+        });
+      }
       if (request.method === "POST" && path === "/v1/artifacts") {
         const body = JSON.parse(Buffer.concat(chunks).toString() || "{}") as Record<string, unknown>;
         artifactRequests.push({
@@ -122,10 +142,15 @@ export async function startAuscaService(options?: AuscaServiceOptions): Promise<
           body,
         });
         const data = Buffer.from(String(body.data_base64), "base64");
+        // Ingress mints a storage identity the caller cannot derive from its
+        // own bytes, exactly as the live service does.
+        const mintedRef = `runx:artifact:sha256:${createHash("sha256")
+          .update(`storage\n${body.content_digest}`)
+          .digest("hex")}`;
         return json(200, {
           status: "stored",
           artifact: {
-            artifact_ref: `runx:artifact:${body.content_digest}`,
+            artifact_ref: mintedRef,
             content_digest: body.content_digest,
             media_type: body.media_type,
             size_bytes: data.length,

@@ -23,13 +23,13 @@ or dashboard surface.
 
 Use the default `create` runner when no inbox exists. Choose one initial lease:
 
-- 1 hour: $0.10 USD all-in
-- 24 hours: $0.25 USD all-in
-- 7 days: $1.05 USD all-in
+- 1 hour: $0.05 USD
+- 24 hours: $0.20 USD
+- 7 days: $1.00 USD
 
 Use the `extend` runner only for an existing active inbox that must keep the
-same address. The same increments and all-in prices apply. Each create or
-extension is one separately approved checkout. Waiting, status reads, message
+same address. The same increments and prices apply. Each create or extension
+is one separately approved purchase. Waiting, status reads, message
 listing and reads, clean attachment access, and deletion are included; they do
 not charge again.
 
@@ -38,7 +38,7 @@ only when more time is useful. Do not create another inbox to recover an
 uncertain create, and do not use `extend` for an inbox that is already expired
 or deleted.
 
-Preparation binds the exact operation, business input, all-in amount, currency,
+Preparation binds the exact operation, business input, amount, currency,
 contract revisions, and retry identity before approval. Resolve current terms
 through service preparation and do not override them.
 
@@ -150,7 +150,8 @@ completed.
 Changed terms under an existing identity are a conflict. A stale expiry needs
 a fresh status read and fresh extension preparation. A missing current listing,
 authorization handle, settlement adapter, provider result, or receipt binding
-is a stop, not permission to bypass the paid service path.
+is a stop, not permission to bypass the paid service path. A failed invocation
+reports `failure.code` and `failure.message`; the payment is refunded.
 
 Treat `not_found` from an authorized route as unavailable identity or authority
 without probing for which one failed. `gone` is terminal for active-only

@@ -25,7 +25,7 @@ class LeaseBrowser(BaseModel):
 
 browser = payable_tool(
     name="lease_browser",
-    description="Lease a remote browser with CDP access for 10, 30, or 60 minutes. Costs $0.10 to $0.25 in USDC on Base.",
+    description="Lease a remote browser with CDP access for 10, 30, or 60 minutes. Costs $0.05 to $0.20 in USDC on Base.",
     args_schema=LeaseBrowser,
     url="https://ausca.com/v1/lease-browser",
     private_key=os.environ["WALLET_PRIVATE_KEY"],  # pays USDC on Base
