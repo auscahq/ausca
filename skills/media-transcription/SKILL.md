@@ -48,10 +48,23 @@ with that type:
 - `ogg` for `audio/ogg`; `wav` for `audio/wav`;
 - `webm` for `audio/webm` or `video/webm`.
 
-Set the known `language_code` as a two- or three-letter lowercase language,
-optionally followed by an uppercase region, such as `en` or `en-AU`. Automatic
-language selection is not part of this contract. Media bytes do not belong in
-the invocation JSON.
+Set the known `language_code` to one of the region-qualified codes the service
+accepts, such as `en-AU`. The accepted set is the `language_code` enum in the
+published input schema; an unqualified language such as `en` is refused at
+admission. Automatic language selection is not part of this contract. Media
+bytes do not belong in the invocation JSON.
+
+```json
+{
+  "artifact": {
+    "artifact_ref": "runx:artifact:sha256:8888888888888888888888888888888888888888888888888888888888888888",
+    "content_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+    "media_type": "audio/mpeg"
+  },
+  "media_format": "mp3",
+  "language_code": "en-AU"
+}
+```
 
 The normalized text is bounded to 8,000,000 characters. Results up to 64 KiB
 arrive inline as `output`; a larger result arrives as `output_artifact`, an
@@ -74,12 +87,13 @@ For a direct HTTP integration:
 
 1. Commit the media if necessary and verify the returned commitment against
    the local bytes.
-2. Send the exact business input to `POST /v1/transcribe-media/prepare`.
-   Preparation validates metadata and fixes binding terms from committed size;
-   it moves no money.
-3. Send the resulting exact invocation envelope to
-   `POST /v1/transcribe-media` without payment material to discover the live
-   x402 v2 requirement.
+2. Resolve the active catalog revision and construct its exact invocation
+   envelope with the business input and a stable idempotency key.
+3. Send that envelope to `POST /v1/transcribe-media` without payment material.
+   The route validates the artifact metadata, fixes measured terms, and returns
+   the invocation-bound x402 v2 requirement without admitting work or moving
+   money. `POST /v1/invocations/prepare` exposes the same preparation as an
+   optional transport operation; there is no route-specific `/prepare` path.
 4. After explicit payment authorization, retry the same request bytes and
    idempotency key with `PAYMENT-SIGNATURE`.
 5. Read `GET /v1/invocations/{invocation_id}` until terminal state. A closed

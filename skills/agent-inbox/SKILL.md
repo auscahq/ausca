@@ -81,8 +81,8 @@ immediately before preparation. Then invoke `ausca/agent-inbox#extend` with:
 
 ```json
 {
-  "inbox_id": "inb_…",
-  "extension_authorization": "aue_…",
+  "inbox_id": "inb_0123456789abcdef0123456789abcdef01234567",
+  "extension_authorization": "aue_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
   "expected_expires_at": "2026-09-01T01:00:00.000Z",
   "additional_duration_seconds": 86400
 }

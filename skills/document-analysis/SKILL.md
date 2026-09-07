@@ -43,6 +43,17 @@ Supply one immutable artifact commitment with `artifact_ref`, matching
 `feature_types` from `FORMS`, `TABLES`, `SIGNATURES`, and `LAYOUT`. The artifact
 may be at most 10 MiB; document bytes do not belong in invocation JSON.
 
+```json
+{
+  "artifact": {
+    "artifact_ref": "runx:artifact:sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "content_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+    "media_type": "application/pdf"
+  },
+  "feature_types": ["FORMS", "TABLES"]
+}
+```
+
 The result is a manifest of one to 32 ordered page artifacts. Each page entry
 binds its page index, artifact reference, content digest, and size. A manifest
 up to 64 KiB arrives inline as `output`; a larger one arrives as
@@ -66,12 +77,13 @@ For a direct HTTP integration:
 
 1. Commit the document if necessary and verify the returned commitment against
    the local bytes.
-2. Send the exact business input to
-   `POST /v1/analyze-document/prepare`. Preparation validates the artifact
-   metadata and fixes binding terms from its committed size; it moves no money.
-3. Send the resulting exact invocation envelope to
-   `POST /v1/analyze-document` without payment material to discover the live
-   x402 v2 requirement.
+2. Resolve the active catalog revision and construct its exact invocation
+   envelope with the business input and a stable idempotency key.
+3. Send that envelope to `POST /v1/analyze-document` without payment material.
+   The route validates the artifact metadata, fixes measured terms, and returns
+   the invocation-bound x402 v2 requirement without admitting work or moving
+   money. `POST /v1/invocations/prepare` exposes the same preparation as an
+   optional transport operation; there is no route-specific `/prepare` path.
 4. After explicit payment authorization, retry the same request bytes and
    idempotency key with `PAYMENT-SIGNATURE`.
 5. Read `GET /v1/invocations/{invocation_id}` until terminal state. A closed

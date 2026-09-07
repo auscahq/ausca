@@ -43,6 +43,16 @@ Supply one immutable artifact commitment with `artifact_ref`, matching
 `image/jpeg`, `image/png`, or `image/tiff`. The artifact may be at most 10 MiB.
 Document bytes do not belong in the invocation JSON.
 
+```json
+{
+  "artifact": {
+    "artifact_ref": "runx:artifact:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "content_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "media_type": "application/pdf"
+  }
+}
+```
+
 The result is one `ausca.document_ocr.output.v1` document: `source_digest`,
 normalized `text`, and `lines` with per-line confidence and page. The
 invocation state carries its `output_digest`. Results up to 64 KiB arrive

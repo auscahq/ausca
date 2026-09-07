@@ -30,9 +30,21 @@ promise.
 
 Invoke the exact `ausca/browser-session` package through the caller's skill
 runtime. The runtime resolves immutable live terms and routes the paid call to
-`https://ausca.com/v1/lease-browser`. The exact service input is
-`{"duration_seconds":600}`, `{"duration_seconds":1800}`, or
-`{"duration_seconds":3600}`. There are no other browser options.
+`https://ausca.com/v1/lease-browser`. The service input is exactly one of:
+
+```json
+{ "duration_seconds": 600 }
+```
+
+```json
+{ "duration_seconds": 1800 }
+```
+
+```json
+{ "duration_seconds": 3600 }
+```
+
+There are no other browser options.
 
 After an authorized purchase, read `resource_result.resource_access` from the
 verified paid-invocation readback. It contains the session id, expiry, and the
