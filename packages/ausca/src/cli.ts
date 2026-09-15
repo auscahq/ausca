@@ -24,7 +24,8 @@ const USAGE = `ausca: metered agent infrastructure services, paid per call
   ausca price <offer-id>           published price policy
   ausca invoke <offer-id> [input] [--idempotency-key <key>]
                                      paid invocation; input inline, @file, or stdin
-  ausca commit <file>              artifact commitment for document and media offers
+  ausca commit <file> [--idempotency-key <key>]
+                                     artifact commitment for document and media offers
   ausca mcp                        local MCP server over stdio
 
 Environment: AUSCA_PRIVATE_KEY and AUSCA_MAX_PAYMENT_USD pay invocations;
@@ -86,6 +87,32 @@ function invocationArguments(rest: readonly string[]): {
   return { offerId, inputArgument, idempotencyKey };
 }
 
+function commitArguments(rest: readonly string[]): {
+  file: string;
+  idempotencyKey?: string;
+} {
+  let file: string | undefined;
+  let idempotencyKey: string | undefined;
+  for (let index = 0; index < rest.length; index += 1) {
+    const argument = rest[index];
+    if (argument === "--idempotency-key") {
+      if (idempotencyKey !== undefined || !rest[index + 1]) {
+        throw new Error("--idempotency-key requires one value");
+      }
+      idempotencyKey = rest[index + 1];
+      index += 1;
+    } else if (file === undefined) {
+      file = argument;
+    } else {
+      throw new Error(`unexpected commit argument ${argument}`);
+    }
+  }
+  if (!file) {
+    throw new Error("usage: ausca commit <file> [--idempotency-key <key>]");
+  }
+  return { file, idempotencyKey };
+}
+
 async function resolveInput(argument: string | undefined, environment: CliEnvironment): Promise<unknown> {
   let text: string;
   if (argument === undefined || argument === "-") {
@@ -137,13 +164,12 @@ export async function runCli(argv: readonly string[], environment: CliEnvironmen
         return 0;
       }
       case "commit": {
-        const [file] = rest;
-        if (!file) {
-          throw new Error("usage: ausca commit <file>");
-        }
+        const { file, idempotencyKey } = commitArguments(rest);
         const client = clientFromEnvironment(environment.env);
         const bytes = new Uint8Array(await readFile(file));
-        const commitment = await client.commit(bytes, mediaTypeFor(file));
+        const commitment = await client.commit(bytes, mediaTypeFor(file), {
+          ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+        });
         environment.write(JSON.stringify(commitment, null, 2));
         return 0;
       }

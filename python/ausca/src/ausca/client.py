@@ -239,9 +239,21 @@ class AuscaClient:
             raise AuscaError(f"invocation read answered {response.status_code}")
         return response.json()
 
-    def commit(self, data: bytes, media_type: str) -> ArtifactCommitment:
+    def commit(
+        self,
+        data: bytes,
+        media_type: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> ArtifactCommitment:
         """Commit input bytes through the configured artifact store."""
-        return self._artifacts.commit(data, media_type)
+        if idempotency_key is None:
+            return self._artifacts.commit(data, media_type)
+        return self._artifacts.commit(
+            data,
+            media_type,
+            idempotency_key=idempotency_key,
+        )
 
     def artifact_access(self, artifact_ref: str, idempotency_key: str | None = None) -> dict[str, Any]:
         """Mint a 60-second download URL for an artifact this service holds.

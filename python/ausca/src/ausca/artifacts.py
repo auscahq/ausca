@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import re
+import uuid
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -36,7 +37,13 @@ class ArtifactCommitment:
 class ArtifactStore(Protocol):
     """Stores bytes and returns the commitment the invocation input carries."""
 
-    def commit(self, data: bytes, media_type: str) -> ArtifactCommitment: ...
+    def commit(
+        self,
+        data: bytes,
+        media_type: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> ArtifactCommitment: ...
 
 
 class AuscaArtifactStore:
@@ -51,23 +58,37 @@ class AuscaArtifactStore:
         self._origin = origin.rstrip("/")
         self._http = http or httpx.Client(timeout=120)
 
-    def commit(self, data: bytes, media_type: str) -> ArtifactCommitment:
+    def commit(
+        self,
+        data: bytes,
+        media_type: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> ArtifactCommitment:
         if not data or len(data) > MAX_ARTIFACT_BYTES:
             raise ArtifactError(f"artifact must contain 1 to {MAX_ARTIFACT_BYTES} bytes")
         if not media_type or media_type.strip() != media_type or len(media_type) > 200:
             raise ArtifactError("artifact media type is invalid")
         digest_hex = hashlib.sha256(data).hexdigest()
         content_digest = f"sha256:{digest_hex}"
-        request_hex = hashlib.sha256(
-            f"{content_digest}\n{media_type}".encode()
-        ).hexdigest()
+        operation_key = idempotency_key or f"ausca-artifact-{uuid.uuid4()}"
+        encoded_key = operation_key.encode("utf-8")
+        if (
+            len(encoded_key) < 16
+            or len(encoded_key) > 128
+            or operation_key.strip() != operation_key
+            or any(ord(character) < 0x20 or ord(character) == 0x7F for character in operation_key)
+        ):
+            raise ArtifactError(
+                "artifact idempotency_key must be 16 to 128 clean UTF-8 bytes"
+            )
         response = self._http.post(
             f"{self._origin}/v1/artifacts",
             json={
                 "data_base64": base64.b64encode(data).decode(),
                 "content_digest": content_digest,
                 "media_type": media_type,
-                "idempotency_key": f"ausca-artifact-{request_hex[:32]}",
+                "idempotency_key": operation_key,
             },
         )
         if response.status_code >= 400:

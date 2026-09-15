@@ -16,7 +16,7 @@ from ausca import (
     AuscaClient,
     PaymentReceipt,
 )
-from ausca.cli import _invocation_args, media_type_for, run
+from ausca.cli import _commit_args, _invocation_args, media_type_for, run
 
 CATALOG = {
     "offers": [
@@ -150,6 +150,10 @@ def test_cli_accepts_a_caller_owned_recovery_key() -> None:
         "cli-purchase-20260903-0001",
     )
 
+    assert _commit_args(
+        ["scan.pdf", "--idempotency-key", "artifact-20260915-0001"]
+    ) == ("scan.pdf", "artifact-20260915-0001")
+
 
 def test_media_types() -> None:
     assert media_type_for("scan.PDF") == "application/pdf"
@@ -198,16 +202,27 @@ def test_ausca_artifact_store_commits_keylessly() -> None:
     try:
         client = AuscaClient(origin=f"http://127.0.0.1:{server.server_port}")
         commitment = client.commit(b"pdf", "application/pdf")
+        client.commit(b"pdf", "application/pdf")
+        client.commit(
+            b"pdf",
+            "application/pdf",
+            idempotency_key="artifact-recovery-20260915-0001",
+        )
         minted = hashlib.sha256(
             b"storage\nsha256:" + hashlib.sha256(b"pdf").hexdigest().encode()
         ).hexdigest()
         assert commitment.artifact_ref == "runx:artifact:sha256:" + minted
         assert commitment.content_digest == "sha256:" + hashlib.sha256(b"pdf").hexdigest()
-        [commit] = _ArtifactService.operations
+        commit, second, recovered = _ArtifactService.operations
         assert commit["path"] == "/v1/artifacts"
         assert commit["authorization"] is None
         assert commit["idempotency_key"].startswith("ausca-artifact-")
+        assert second["idempotency_key"].startswith("ausca-artifact-")
+        assert second["idempotency_key"] != commit["idempotency_key"]
+        assert recovered["idempotency_key"] == "artifact-recovery-20260915-0001"
         with pytest.raises(ArtifactError, match="1 to"):
             client.commit(b"", "application/pdf")
+        with pytest.raises(ArtifactError, match="16 to 128 clean UTF-8 bytes"):
+            client.commit(b"pdf", "application/pdf", idempotency_key="too-short")
     finally:
         server.shutdown()

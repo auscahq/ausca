@@ -102,13 +102,20 @@ describe("ausca cli", () => {
     await writeFile(file, "pdf");
     try {
       const environment = testEnvironment({ AUSCA_ORIGIN: service.origin });
-      const code = await runCli(["commit", file], environment);
+      const code = await runCli([
+        "commit",
+        file,
+        "--idempotency-key",
+        "cli-artifact-20260915-0001",
+      ], environment);
       expect(environment.errors).toEqual([]);
       expect(code).toBe(0);
       const commitment = JSON.parse(environment.lines[0]) as { artifactRef: string };
       expect(commitment.artifactRef).toMatch(/^runx:artifact:sha256:/u);
       expect(service.artifactRequests).toHaveLength(1);
       expect(service.artifactRequests[0].authorization).toBeUndefined();
+      expect(service.artifactRequests[0].body.idempotency_key)
+        .toBe("cli-artifact-20260915-0001");
     } finally {
       await rm(directory, { recursive: true, force: true });
       await service.close();

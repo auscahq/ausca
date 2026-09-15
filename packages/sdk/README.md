@@ -48,10 +48,12 @@ Caps are enforced inside the authority before anything is signed.
 ## Artifact store
 
 Artifact-backed offers take an immutable input commitment.
-`client.commit(bytes, mediaType)` uses Ausca's keyless temporary ingress,
-verifies the returned digest-backed evidence, and returns the commitment the
-invocation input carries. No account or API token is needed. `ArtifactStore`
-remains the narrow port for a custom storage policy.
+`client.commit(bytes, mediaType)` uses Ausca's keyless temporary ingress and
+creates a fresh temporary commitment on every call. Pass
+`{ idempotencyKey: "..." }` only to recover the same uncertain upload. The
+client verifies the returned digest-backed evidence and returns the commitment
+the invocation input carries. No account or API token is needed.
+`ArtifactStore` remains the narrow port for a custom storage policy.
 
 Successful paid state includes `receipt_ref.public_url`, an immutable
 hash-only proof of the Ausca service, public price, completion time, and

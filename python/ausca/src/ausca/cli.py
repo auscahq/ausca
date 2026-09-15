@@ -22,7 +22,8 @@ USAGE = """ausca: metered agent infrastructure services, paid per call
   ausca price <offer-id>           published price policy
   ausca invoke <offer-id> [input] [--idempotency-key <key>]
                                      paid invocation; input inline, @file, or stdin
-  ausca commit <file>              artifact commitment for document and media offers
+  ausca commit <file> [--idempotency-key <key>]
+                                     artifact commitment for document and media offers
 
 Environment: AUSCA_PRIVATE_KEY and AUSCA_MAX_PAYMENT_USD pay invocations;
 AUSCA_NETWORK overrides the payment network; AUSCA_ORIGIN overrides the service.
@@ -128,6 +129,27 @@ def _invocation_args(argv: list[str]) -> tuple[str, str | None, str | None]:
     return offer_id, input_argument, idempotency_key
 
 
+def _commit_args(argv: list[str]) -> tuple[str, str | None]:
+    file: str | None = None
+    idempotency_key: str | None = None
+    index = 0
+    while index < len(argv):
+        argument = argv[index]
+        if argument == "--idempotency-key":
+            if idempotency_key is not None or index + 1 >= len(argv):
+                raise SystemExit("--idempotency-key requires one value")
+            idempotency_key = argv[index + 1]
+            index += 2
+        elif file is None:
+            file = argument
+            index += 1
+        else:
+            raise SystemExit(f"unexpected commit argument {argument}")
+    if file is None:
+        raise SystemExit("usage: ausca commit <file> [--idempotency-key <key>]")
+    return file, idempotency_key
+
+
 def run(
     argv: list[str],
     env: Mapping[str, str],
@@ -162,10 +184,13 @@ def run(
         print(_json(outcome), file=stdout)
         return 0
     if verb == "commit":
-        if len(argv) < 2:
-            raise SystemExit("usage: ausca commit <file>")
-        path = Path(argv[1])
-        commitment = _client(env).commit(path.read_bytes(), media_type_for(path.name))
+        file, idempotency_key = _commit_args(argv[1:])
+        path = Path(file)
+        commitment = _client(env).commit(
+            path.read_bytes(),
+            media_type_for(path.name),
+            idempotency_key=idempotency_key,
+        )
         print(_json(commitment), file=stdout)
         return 0
     raise SystemExit(f"unknown verb {verb}; run ausca help")

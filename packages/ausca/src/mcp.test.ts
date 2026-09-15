@@ -37,6 +37,8 @@ describe("ausca mcp server", () => {
       expect(names).toContain("ausca_catalog");
       expect(names).toContain("ausca_price");
       expect(names).toContain("ausca_commit_artifact");
+      const commit = tools.find((tool) => tool.name === "ausca_commit_artifact");
+      expect(commit?.inputSchema.properties).toHaveProperty("ausca_idempotency_key");
       const echo = tools.find((tool) => tool.name === "ausca_echo");
       expect(echo?.inputSchema.required).toEqual(["message"]);
       expect(echo?.inputSchema.properties).toHaveProperty("ausca_idempotency_key");
@@ -102,13 +104,19 @@ describe("ausca mcp server", () => {
       const client = await connectedClient({ AUSCA_ORIGIN: service.origin });
       const result = await client.callTool({
         name: "ausca_commit_artifact",
-        arguments: { data_base64: "cGRm", media_type: "application/pdf" },
+        arguments: {
+          data_base64: "cGRm",
+          media_type: "application/pdf",
+          ausca_idempotency_key: "mcp-artifact-20260915-0001",
+        },
       });
       expect(result.isError).not.toBe(true);
       const committed = firstText(result) as { artifactRef: string };
       expect(committed.artifactRef).toMatch(/^runx:artifact:sha256:/u);
       expect(service.artifactRequests).toHaveLength(1);
       expect(service.artifactRequests[0].authorization).toBeUndefined();
+      expect(service.artifactRequests[0].body.idempotency_key)
+        .toBe("mcp-artifact-20260915-0001");
 
       const invalid = await client.callTool({
         name: "ausca_commit_artifact",

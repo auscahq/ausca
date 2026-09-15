@@ -27,7 +27,9 @@ The HTTP request has exactly four fields: canonical standard-base64
 the truthful `media_type`; and a stable `idempotency_key`. Reuse that key only
 for the same bytes and metadata. Retry an uncertain response or HTTP 429 with
 the same request and key after the server's `Retry-After`; changing any field
-under that key is a conflict.
+under that key is a conflict. A later intentional commit needs a new key, even
+when its bytes match an older artifact; current Ausca clients generate one by
+default and accept an explicit key for recovery.
 
 Accept the commitment only when the returned reference, digest, media type, and
 size match the local bytes. The active catalog currently limits artifact-backed

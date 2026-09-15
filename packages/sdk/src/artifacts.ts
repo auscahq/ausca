@@ -13,7 +13,19 @@ export interface ArtifactCommitment {
 
 export interface ArtifactStore {
   /** Store bytes and return the commitment the invocation input carries. */
-  commit(bytes: Uint8Array, mediaType: string): Promise<ArtifactCommitment>;
+  commit(
+    bytes: Uint8Array,
+    mediaType: string,
+    options?: ArtifactCommitOptions,
+  ): Promise<ArtifactCommitment>;
+}
+
+export interface ArtifactCommitOptions {
+  /**
+   * Caller-owned identity for recovery after an uncertain response. Reuse it
+   * only for the same bytes and media type; omit it for a new commitment.
+   */
+  readonly idempotencyKey?: string;
 }
 
 export class ArtifactError extends Error {}
@@ -30,17 +42,17 @@ export const MAX_ARTIFACT_BYTES = 25 * 1024 * 1024;
 const ARTIFACT_REF_PATTERN = /^runx:artifact:sha256:[0-9a-f]{64}$/u;
 
 /**
- * Commits bytes through Ausca's keyless, temporary artifact ingress. The
- * idempotency key derives from the content digest and media type, so an
- * uncertain retry cannot create another logical artifact while the same bytes
- * may still be committed under a different truthful media type.
+ * Commits bytes through Ausca's keyless, temporary artifact ingress. Every
+ * call is a new temporary commitment unless the caller supplies the same
+ * idempotency key to recover one uncertain upload. Content identity cannot be
+ * the operation identity: an older commitment may already have expired.
  */
 export function auscaArtifactStore(options: AuscaArtifactStoreOptions = {}): ArtifactStore {
   const origin = (options.origin ?? DEFAULT_ORIGIN).replace(/\/$/, "");
   const baseFetch = options.fetch ?? globalThis.fetch;
 
   return {
-    async commit(bytes, mediaType) {
+    async commit(bytes, mediaType, commitOptions) {
       if (bytes.length === 0 || bytes.length > MAX_ARTIFACT_BYTES) {
         throw new ArtifactError(`artifact must contain 1 to ${MAX_ARTIFACT_BYTES} bytes`);
       }
@@ -49,9 +61,7 @@ export function auscaArtifactStore(options: AuscaArtifactStoreOptions = {}): Art
       }
       const hex = await sha256Hex(bytes);
       const contentDigest = `sha256:${hex}`;
-      const requestHex = await sha256Hex(
-        new TextEncoder().encode(`${contentDigest}\n${mediaType}`),
-      );
+      const idempotencyKey = artifactIdempotencyKey(commitOptions?.idempotencyKey);
       const response = await baseFetch(`${origin}/v1/artifacts`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -59,7 +69,7 @@ export function auscaArtifactStore(options: AuscaArtifactStoreOptions = {}): Art
           data_base64: base64Encode(bytes),
           content_digest: contentDigest,
           media_type: mediaType,
-          idempotency_key: `ausca-artifact-${requestHex.slice(0, 32)}`,
+          idempotency_key: idempotencyKey,
         }),
       });
       const text = await response.text();
@@ -92,6 +102,20 @@ export function auscaArtifactStore(options: AuscaArtifactStoreOptions = {}): Art
       return { artifactRef: evidence.artifact_ref, contentDigest, mediaType };
     },
   };
+}
+
+function artifactIdempotencyKey(value: string | undefined): string {
+  const key = value ?? `ausca-artifact-${crypto.randomUUID()}`;
+  const size = new TextEncoder().encode(key).length;
+  if (
+    size < 16 ||
+    size > 128 ||
+    key.trim() !== key ||
+    /[\u0000-\u001f\u007f]/u.test(key)
+  ) {
+    throw new ArtifactError("artifact idempotencyKey must be 16 to 128 clean UTF-8 bytes");
+  }
+  return key;
 }
 
 function isExactObject(value: unknown, fields: readonly string[]): value is Record<string, unknown> {

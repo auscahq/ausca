@@ -1,4 +1,9 @@
-import { auscaArtifactStore, type ArtifactCommitment, type ArtifactStore } from "./artifacts.js";
+import {
+  auscaArtifactStore,
+  type ArtifactCommitment,
+  type ArtifactCommitOptions,
+  type ArtifactStore,
+} from "./artifacts.js";
 import {
   localKeyAuthority,
   type LocalKeyAuthorityOptions,
@@ -263,8 +268,12 @@ export class AuscaClient {
   }
 
   /** Commit input bytes through the configured artifact store. */
-  async commit(bytes: Uint8Array, mediaType: string): Promise<ArtifactCommitment> {
-    return this.artifacts.commit(bytes, mediaType);
+  async commit(
+    bytes: Uint8Array,
+    mediaType: string,
+    options?: ArtifactCommitOptions,
+  ): Promise<ArtifactCommitment> {
+    return this.artifacts.commit(bytes, mediaType, options);
   }
 
   /**

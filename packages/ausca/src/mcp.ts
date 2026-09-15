@@ -143,6 +143,13 @@ async function deriveTools(
       properties: {
         data_base64: { type: "string" },
         media_type: { type: "string" },
+        [IDEMPOTENCY_ARGUMENT]: {
+          type: "string",
+          minLength: 16,
+          maxLength: 128,
+          description:
+            "Optional caller-owned identity for recovery. Reuse it only for the same bytes and media type; omit it for a new temporary commitment.",
+        },
       },
     },
   });
@@ -212,8 +219,16 @@ export async function buildMcpServer(env: Environment): Promise<Server> {
         return textResult(await client.price(args.offer_id as string));
       }
       if (tool.name === "ausca_commit_artifact") {
+        const idempotencyKey = args[IDEMPOTENCY_ARGUMENT];
+        if (idempotencyKey !== undefined && typeof idempotencyKey !== "string") {
+          throw new Error(`${IDEMPOTENCY_ARGUMENT} must be a string`);
+        }
         return textResult(
-          await client.commit(decodeArtifactBytes(args.data_base64), args.media_type as string),
+          await client.commit(
+            decodeArtifactBytes(args.data_base64),
+            args.media_type as string,
+            { ...(idempotencyKey === undefined ? {} : { idempotencyKey }) },
+          ),
         );
       }
       if (!paying) {

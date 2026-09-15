@@ -82,8 +82,10 @@ is enforced before anything is signed.
 Document and media offers take an immutable artifact commitment instead of
 raw bytes. `npx ausca commit file.pdf` sends the bytes to Ausca's keyless
 temporary ingress and returns the commitment the offer input carries; the
-library equivalent is `client.commit(bytes, mediaType)`. Repeating the same
-bytes is idempotent. The active offer catalog sets the usable input limit.
+library equivalent is `client.commit(bytes, mediaType)`. Each call creates a
+fresh temporary commitment, including when the bytes match an older upload.
+Pass an explicit idempotency key only to recover the same uncertain commit.
+The active offer catalog sets the usable input limit.
 
 Successful paid state includes `receipt_ref.public_url`, an immutable
 hash-only proof of the Ausca service, public price, completion time, and

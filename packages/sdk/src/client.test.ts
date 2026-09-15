@@ -142,7 +142,7 @@ describe("AuscaClient", () => {
 });
 
 describe("Ausca artifact ingress", () => {
-  it("commits keylessly with digest-derived idempotency", async () => {
+  it("uses a fresh commit identity by default and preserves an explicit recovery identity", async () => {
     const operations: Record<string, unknown>[] = [];
     const server = createServer((request, response) => {
       const chunks: Buffer[] = [];
@@ -172,20 +172,24 @@ describe("Ausca artifact ingress", () => {
         origin: `http://127.0.0.1:${address(server)}`,
       });
       const commitment = await client.commit(new TextEncoder().encode("pdf"), "application/pdf");
+      await client.commit(new TextEncoder().encode("pdf"), "application/pdf");
+      await client.commit(new TextEncoder().encode("pdf"), "application/pdf", {
+        idempotencyKey: "artifact-recovery-20260915-0001",
+      });
       const digest = createHash("sha256").update("pdf").digest("hex");
-      const requestDigest = createHash("sha256")
-        .update(`sha256:${digest}\napplication/pdf`)
-        .digest("hex");
       const mintedDigest = createHash("sha256")
         .update(`storage\nsha256:${digest}`)
         .digest("hex");
       expect(commitment.artifactRef).toBe(`runx:artifact:sha256:${mintedDigest}`);
       expect(commitment.contentDigest).toBe(`sha256:${digest}`);
-      expect(operations).toHaveLength(1);
-      const [commit] = operations as [Record<string, never>];
+      expect(operations).toHaveLength(3);
+      const [commit, second, recovered] = operations as Record<string, never>[];
       expect(commit.path).toBe("/v1/artifacts");
       expect(commit.authorization).toBeUndefined();
-      expect(commit.idempotency_key).toBe(`ausca-artifact-${requestDigest.slice(0, 32)}`);
+      expect(commit.idempotency_key).toMatch(/^ausca-artifact-[0-9a-f-]{36}$/u);
+      expect(second.idempotency_key).toMatch(/^ausca-artifact-[0-9a-f-]{36}$/u);
+      expect(second.idempotency_key).not.toBe(commit.idempotency_key);
+      expect(recovered.idempotency_key).toBe("artifact-recovery-20260915-0001");
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
@@ -206,6 +210,11 @@ describe("Ausca artifact ingress", () => {
         .rejects.toThrow(ArtifactError);
       await expect(client.commit(new Uint8Array(), "application/pdf"))
         .rejects.toThrow("1 to");
+      await expect(client.commit(
+        new TextEncoder().encode("pdf"),
+        "application/pdf",
+        { idempotencyKey: "too-short" },
+      )).rejects.toThrow("16 to 128 clean UTF-8 bytes");
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }

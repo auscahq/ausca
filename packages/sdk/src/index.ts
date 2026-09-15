@@ -21,6 +21,7 @@ export {
   ArtifactError,
   MAX_ARTIFACT_BYTES,
   auscaArtifactStore,
+  type ArtifactCommitOptions,
   type ArtifactCommitment,
   type ArtifactStore,
   type AuscaArtifactStoreOptions,
