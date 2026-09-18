@@ -79,8 +79,8 @@ For a direct HTTP integration:
 1. Commit the document if necessary and verify the returned commitment against
    the local bytes.
 2. Resolve the active catalog revision and construct the exact invocation
-   envelope with its revision, schema digests, canonicalizer, input, and stable
-   idempotency key.
+   envelope with its revision, schema digests, input, and stable idempotency
+   key.
 3. Send that envelope without payment material to discover the live x402 v2
    requirement. This unsigned request does not settle or admit work.
 4. After explicit payment authorization, retry the same request bytes and key

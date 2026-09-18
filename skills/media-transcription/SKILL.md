@@ -102,7 +102,7 @@ For a direct HTTP integration:
    HTTP connection does not imply that durable work stopped.
 
 The preparation invocation, prepared input digest, catalog revision, schema
-digests, canonicalizer, and purchase key are one binding set.
+digests, and purchase key are one binding set.
 
 ## Evidence and recovery
 

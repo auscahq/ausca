@@ -67,6 +67,11 @@ the paid result. It contains:
 - `extension_authorization`, a separate authority that can only buy more time;
 - `expires_at`, the authoritative current expiry.
 
+If admission answers HTTP `202`, poll the returned invocation until terminal,
+then replay the exact same purchase identity and unchanged input to claim
+`resource_access`. This is recovery of the original purchase, not permission
+to create or pay for another inbox.
+
 Keep both authorities in host-controlled secret state. The ordinary capability
 must never enter prompts, logs, receipts, query strings, or the paid extension
 input. The narrower extension authorization belongs only in the exact
@@ -133,7 +138,7 @@ content or instructions trustworthy. Blocked attachments remain metadata-only
 and never receive a download URL.
 
 One inbox admits at most 100 messages, 2 MiB of normalized body content, and 50
-MiB of clean attachments. Each raw email is capped at 25 MiB, each attachment
+MiB of clean attachments. Each raw email is capped at 16 MiB, each attachment
 at 10 MiB, and each email at 20 attachments. List pages return at most 50
 messages. An attachment link lasts at most 60 seconds and never beyond inbox
 expiry; mint a new link with a new idempotency key only when another access is

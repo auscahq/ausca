@@ -50,6 +50,9 @@ After an authorized purchase, read `resource_result.resource_access` from the
 verified paid-invocation readback. It contains the session id, expiry, and the
 opaque capability. The capability is returned only by paid admission or its
 exact authenticated replay; invocation status and receipts do not contain it.
+If admission answers HTTP `202`, poll the returned invocation until terminal,
+then replay the exact same purchase identity and unchanged input to claim
+`resource_access`; do not start a new purchase.
 Keep it in host-controlled secret state. Never place it in a prompt, log,
 receipt, query string, or later model-authored tool argument. Losing it is not
 recoverable through public lookup.
@@ -70,11 +73,18 @@ Keep one MCP request or connection scoped to one lease authority.
    expiry to clean it up.
 
 Only one CDP connection may be live at once. Connection tickets last 60 seconds,
-are single-use, and stop after eight issues. Use a stable connection
-`Idempotency-Key` to recover the same intended ticket; a different key means a
-new ticket issue. Each CDP message is capped at 32 MiB. Status can report a
-terminal lease, but connect requires `ready`. Close is idempotent, including
-after terminal state.
+are single-use, and at most 64 unexpired tickets may coexist. Expired records
+are compacted, so reconnects do not consume a lifetime quota. Use a stable
+connection `Idempotency-Key` to recover the same intended ticket; a different
+key means a new ticket issue. Each CDP message is capped at 32 MiB. Status can
+report a terminal lease, but connect requires `ready`. Close is idempotent,
+including after terminal state.
+
+Cloudflare treats 10 minutes as an inactivity timeout, not the session's hard
+lifetime. For a 30- or 60-minute lease, issue a CDP command at least once inside
+each 10-minute idle window. Provider eviction, Chromium failure, or an idle
+timeout can still end a browser before Ausca's maximum lease expiry; reconnect
+failure never allocates or charges for a replacement silently.
 
 A browser lease cannot be extended. Choose the required duration before
 purchase. More browser time means a separately approved new session with new
