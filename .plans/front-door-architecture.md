@@ -140,3 +140,25 @@ Release order:
 
 Never publish from an untested tree, republish an existing version, or claim a
 directory/package release without registry readback.
+
+Credentials and tooling, so any operator can publish:
+
+- npm: the publishing token is the `NPM_TOKEN` environment variable; write a
+  temporary npmrc containing the literal line
+  `//registry.npmjs.org/:_authToken=${NPM_TOKEN}` and point
+  `NPM_CONFIG_USERCONFIG` at it, so the token never appears on a command line.
+  A stored `~/.npmrc` token may be stale (`npm whoami` answers 401); the
+  environment token is authoritative.
+- PyPI: `TWINE_USERNAME` and `TWINE_PASSWORD` in the environment. The system
+  Python may lack `build` and `twine`; use a throwaway virtualenv
+  (`python3 -m venv <dir> && <dir>/bin/pip install build twine`), build into a
+  clean output directory, and upload only that release's two artifacts.
+- Readback lags: `npm view` and the PyPI JSON index can show the previous
+  version for a minute after a publish; verify with a clean install of the
+  exact new version rather than the "latest" pointer.
+- The platform repository never pins the released client: its canary declares
+  `ausca >=0.0.6` as a devDependency and layers `npm install --no-save
+  ausca@latest` on top of the locked tree at run time, so a release here never
+  requires a change there. After the site is live, `npm run sync:skills` here
+  mirrors the served SKILL.md files and `npm run verify:skills` proves the
+  mirror.
