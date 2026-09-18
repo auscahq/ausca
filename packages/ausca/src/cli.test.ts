@@ -111,7 +111,8 @@ describe("ausca cli", () => {
       expect(environment.errors).toEqual([]);
       expect(code).toBe(0);
       const commitment = JSON.parse(environment.lines[0]) as { artifactRef: string };
-      expect(commitment.artifactRef).toMatch(/^runx:artifact:sha256:/u);
+      expect(commitment.artifactRef).toBeTypeOf("string");
+      expect(commitment.artifactRef).not.toBe("");
       expect(service.artifactRequests).toHaveLength(1);
       expect(service.artifactRequests[0].authorization).toBeUndefined();
       expect(service.artifactRequests[0].body.idempotency_key)

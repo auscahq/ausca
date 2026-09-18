@@ -1,6 +1,6 @@
 {
   "name": "langchain-ausca",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "LangChain tools that pay for HTTP 402 APIs over x402 instead of carrying API keys. Works with any x402 v2 resource; Ausca is the default example.",
   "license": "MIT",
   "homepage": "https://ausca.com",

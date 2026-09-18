@@ -26,7 +26,6 @@ CATALOG = {
             "revision_digest": "sha256:" + "a" * 64,
             "input_schema": {"digest": "sha256:" + "b" * 64, "public_path": "/schemas/echo.json"},
             "output_schema": {"digest": "sha256:" + "c" * 64},
-            "canonicalizer_version": "runx.receipt.c14n.v1",
             "route": {"method": "POST", "path": "/v1/echo"},
             "title": "Echo Test",
             "description": "Echo one message back.",

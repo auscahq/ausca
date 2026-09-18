@@ -21,7 +21,6 @@ CATALOG = {
             "revision_digest": "sha256:" + "a" * 64,
             "input_schema": {"digest": "sha256:" + "b" * 64},
             "output_schema": {"digest": "sha256:" + "c" * 64},
-            "canonicalizer_version": "runx.receipt.c14n.v1",
             "route": {"method": "POST", "path": "/v1/extract-text"},
             "title": "Document OCR",
             "description": "Extract normalized text from a scanned document.",

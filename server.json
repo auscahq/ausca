@@ -3,7 +3,7 @@
   "name": "com.ausca/agent-services",
   "title": "Ausca",
   "description": "Pay-per-call APIs and MCP services for agents, no accounts or keys, with verifiable receipts.",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "websiteUrl": "https://ausca.com",
   "repository": {
     "url": "https://github.com/auscahq/ausca",
@@ -26,7 +26,7 @@
     {
       "registryType": "npm",
       "identifier": "ausca",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "runtimeHint": "npx",
       "packageArguments": [
         {

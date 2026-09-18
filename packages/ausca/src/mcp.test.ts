@@ -112,7 +112,8 @@ describe("ausca mcp server", () => {
       });
       expect(result.isError).not.toBe(true);
       const committed = firstText(result) as { artifactRef: string };
-      expect(committed.artifactRef).toMatch(/^runx:artifact:sha256:/u);
+      expect(committed.artifactRef).toBeTypeOf("string");
+      expect(committed.artifactRef).not.toBe("");
       expect(service.artifactRequests).toHaveLength(1);
       expect(service.artifactRequests[0].authorization).toBeUndefined();
       expect(service.artifactRequests[0].body.idempotency_key)

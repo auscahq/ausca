@@ -71,7 +71,6 @@ function catalogDocument(origin: string): Record<string, unknown> {
         description: "Echo one message back, paid per call.",
         revision: "echo-r1",
         revision_digest: `sha256:${"11".repeat(32)}`,
-        canonicalizer_version: "runx.receipt.c14n.v1",
         route: { method: "POST", path: "/v1/echo" },
         artifact: { input_mode: "none" },
         input_schema: {

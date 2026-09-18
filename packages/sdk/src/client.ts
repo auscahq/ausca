@@ -61,7 +61,6 @@ export interface Offer {
   readonly inputSchemaDigest: string;
   readonly inputSchemaPath: string;
   readonly outputSchemaDigest: string;
-  readonly canonicalizerVersion: string;
   readonly routeMethod: string;
   readonly routePath: string;
   readonly price: Price;
@@ -169,7 +168,6 @@ export class AuscaClient {
       inputSchemaDigest: (entry.input_schema as { digest: string }).digest,
       inputSchemaPath: (entry.input_schema as { public_path: string }).public_path,
       outputSchemaDigest: (entry.output_schema as { digest: string }).digest,
-      canonicalizerVersion: entry.canonicalizer_version,
       routeMethod: (entry.route as { method: string }).method,
       routePath: (entry.route as { path: string }).path,
       artifactInputMode: (entry.artifact as { input_mode: string }).input_mode,
@@ -219,7 +217,6 @@ export class AuscaClient {
       offer_revision_digest: offer.revisionDigest,
       input_schema_digest: offer.inputSchemaDigest,
       output_schema_digest: offer.outputSchemaDigest,
-      canonicalizer_version: offer.canonicalizerVersion,
       input,
       idempotency_key: idempotencyKey,
     };

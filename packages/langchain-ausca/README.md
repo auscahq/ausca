@@ -41,7 +41,7 @@ const extractText = payableTool({
   maxPaymentUsd: 0.5,
   buildBody: (input) => ({
     offer_id: "document.ocr",
-    // offer_revision, digests, and canonicalizer come from catalog.json.
+    // offer_revision and digests come from catalog.json.
     input: { artifact: input },
     idempotency_key: `ocr-${input.content_digest.slice(7, 27)}`,
   }),

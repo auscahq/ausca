@@ -62,7 +62,6 @@ class Offer:
     input_schema_digest: str
     input_schema_path: str
     output_schema_digest: str
-    canonicalizer_version: str
     route_method: str
     route_path: str
     title: str
@@ -148,7 +147,6 @@ class AuscaClient:
                     input_schema_digest=entry["input_schema"]["digest"],
                     input_schema_path=entry["input_schema"].get("public_path", ""),
                     output_schema_digest=entry["output_schema"]["digest"],
-                    canonicalizer_version=entry["canonicalizer_version"],
                     route_method=entry["route"]["method"],
                     route_path=entry["route"]["path"],
                     title=entry["title"],
@@ -197,7 +195,6 @@ class AuscaClient:
             "offer_revision_digest": offer.revision_digest,
             "input_schema_digest": offer.input_schema_digest,
             "output_schema_digest": offer.output_schema_digest,
-            "canonicalizer_version": offer.canonicalizer_version,
             "input": invocation_input,
             "idempotency_key": idempotency_key,
         }

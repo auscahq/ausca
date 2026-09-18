@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ausca"
-version = "0.0.4"
+version = "0.1.0"
 description = "Client for Ausca metered agent infrastructure services: catalog-bound invocations paid per call under a hard USD cap, through pluggable payment authorities (x402 v2 today), with receipt-backed results."
 readme = "README.md"
 license = "MIT"

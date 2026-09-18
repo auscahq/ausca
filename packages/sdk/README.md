@@ -25,8 +25,8 @@ const outcome = await client.invoke("document.ocr", { artifact });
 const state = await client.invocation("inv_...");
 ```
 
-The envelope carries the offer's immutable revision, schema digests, and
-canonicalizer exactly as the catalog declares. Each `invoke` starts with a
+The envelope carries the offer's immutable revision and schema digests
+exactly as the catalog declares. Each `invoke` starts with a
 fresh idempotency key. For recovery after an uncertain response, retry with
 the same caller-owned `idempotencyKey`; use a new key for a new intentional
 purchase, even when the input is identical.
