@@ -56,12 +56,24 @@ may be at most 10 MiB; document bytes do not belong in invocation JSON.
 }
 ```
 
-The result is a manifest of one to 32 ordered page artifacts. Each page entry
-binds its page index, artifact reference, content digest, and size. A manifest
+The result is a manifest of one to 32 ordered result-chunk artifacts. The wire
+names `pages` and `page_index` describe pagination chunks, not physical pages.
+Each entry binds its index, artifact reference, digest, size, and
+`feature_counts`. Counts also appear on the manifest: `FORMS` counts detected
+keys, `TABLES` tables, `SIGNATURES` signatures, and `LAYOUT` layout regions.
+Only requested features appear; zero means requested with no detections.
+
+Each [chunk document](https://ausca.com/schemas/offers/document-analysis.page.schema.json)
+contains text, lines, and structured `blocks` with stable ids, types, normalized
+confidence, physical page numbers, relationships, cell coordinates, selection
+state, and bounding boxes where detected. Fetch all chunks before resolving
+relationship ids: a table's cells or a form's value can be in another chunk.
+This is a structural extraction graph, not inferred business meaning. A manifest
 up to 64 KiB arrives inline as `output`; a larger one arrives as
 `output_artifact`, an immutable artifact reference with its content digest and
 size. Mint a 60-second download URL for any page or result artifact with
-`POST /v1/artifacts/{artifact_ref}/access` (`Idempotency-Key` required) and
+`POST /v1/artifacts/{artifact_ref}/access` (`Idempotency-Key` required, **no body**,
+not even `{}`) and
 verify the downloaded bytes against `content_digest`. Result artifacts are
 retained for 24 hours. Retrieve every page needed by downstream work and
 validate it against the linked schema before that deadline. A failed
@@ -117,3 +129,20 @@ incomplete or unverifiable result evidence are stop conditions.
 Ausca owns provider credentials, durable execution, result storage, and receipt
 production. Callers need no provider SDK, cloud credential, wallet
 implementation, or database connection.
+
+## Bindings and executable recovery
+
+`Document Analysis` is the display name, `document.analysis` the catalog offer,
+and `ausca/document-analysis#invoke` the skill runner. Read revision, revision
+digest, input/output schema digests, and route with
+`ausca price document.analysis --json` or the linked catalog. Do not retype
+hashes from prose. `artifactInput(commitment)` converts the SDK's camelCase
+commitment into the exact snake_case offer input.
+
+Use the [executable purchase and recovery examples](https://github.com/auscahq/ausca/tree/main/examples).
+Save a unique purchase key before calling: CLI requires `--idempotency-key`,
+paid MCP requires `ausca_idempotency_key`. Recover with unchanged input and
+that key, not a new purchase. HTTP header names are case-insensitive; use
+`response.headers.get("payment-response")`. Honor `Retry-After` on HTTP 202.
+Artifact-access MCP arguments contain `artifact_ref` and `idempotency_key`;
+they are **not** a JSON body for the bodyless HTTP route.

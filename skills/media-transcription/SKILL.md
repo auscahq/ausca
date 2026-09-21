@@ -10,7 +10,10 @@ video artifact. The service is asynchronous. The price is $0.40 to $1.30 USD
 for an artifact up to 10 MiB, sized by artifact bytes; preparation fixes the
 exact amount before approval.
 
-The result is plain transcript text with its language and source binding. This
+The result contains transcript text, language, source binding, and timed speech
+`segments` (`start_seconds`, `end_seconds`, `text`). Times are seconds from the
+start of the audio. These are provider-detected speech segments, not fabricated
+sentence or word alignment. This
 service does not provide diarization, speaker labels, word timestamps,
 translation, summarization, editing, or a promise that noisy or unintelligible
 speech can be recovered.
@@ -50,6 +53,9 @@ with that type:
 - `ogg` for `audio/ogg`; `wav` for `audio/wav`;
 - `webm` for `audio/webm` or `video/webm`.
 
+An `.m4a` recording uses `audio/mp4`; both `m4a` and `mp4` are admitted formats
+for that media type. Match the actual container, not an arbitrary filename.
+
 Set the known `language_code` to one of the region-qualified codes the service
 accepts, such as `en-AU`. The accepted set is the `language_code` enum in the
 published input schema; an unqualified language such as `en` is refused at
@@ -72,7 +78,7 @@ The normalized text is bounded to 8,000,000 characters. Results up to 64 KiB
 arrive inline as `output`; a larger result arrives as `output_artifact`, an
 immutable artifact reference with its content digest and size. Mint a
 60-second download URL for it with `POST /v1/artifacts/{artifact_ref}/access`
-(`Idempotency-Key` required) and verify the downloaded bytes against
+(`Idempotency-Key` required, **no body**, not even `{}`) and verify the downloaded bytes against
 `content_digest`. Result artifacts are retained for 24 hours, so retrieve
 needed output before that deadline. Durable execution is bounded to two hours.
 A failed invocation reports `failure.code` and `failure.message`; the payment
@@ -126,3 +132,20 @@ missing receipt bindings are stop conditions.
 Ausca owns provider credentials, durable execution, result storage, and receipt
 production. Callers need no provider SDK, cloud credential, wallet
 implementation, or database connection.
+
+## Bindings and executable recovery
+
+`Media Transcription` is the display name, `media.transcription` the catalog
+offer, and `ausca/media-transcription#invoke` the skill runner. Read revision,
+revision digest, input/output schema digests, and route with
+`ausca price media.transcription --json` or the linked catalog; never retype
+hashes from prose. `artifactInput(commitment)` converts the SDK's camelCase
+commitment into the exact snake_case offer input.
+
+Use the [executable purchase and recovery examples](https://github.com/auscahq/ausca/tree/main/examples).
+CLI requires `--idempotency-key`; paid MCP requires `ausca_idempotency_key`.
+Save that key before paying and reuse unchanged input on recovery. A new key
+buys again. Read headers case-insensitively with
+`response.headers.get("payment-response")` and honor `Retry-After` on 202.
+Artifact-access MCP arguments are `artifact_ref` and `idempotency_key`; they
+are not an HTTP JSON body.

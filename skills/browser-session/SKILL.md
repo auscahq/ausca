@@ -46,6 +46,12 @@ runtime. The runtime resolves immutable live terms and routes the paid call to
 
 There are no other browser options.
 
+**Browser Session** is the display name, `browser.session` the catalog offer,
+and `ausca/browser-session#invoke` the skill runner—not different services.
+Read current bindings from [catalog.json](https://ausca.com/catalog.json) or
+`ausca price browser.session --json`. The SDK builds the envelope from these
+bindings; never retype hashes from prose.
+
 After an authorized purchase, read `resource_result.resource_access` from the
 verified paid-invocation readback. It contains the session id, expiry, and the
 opaque capability. The capability is returned only by paid admission or its
@@ -57,6 +63,11 @@ Keep it in host-controlled secret state. Never place it in a prompt, log,
 receipt, query string, or later model-authored tool argument. Losing it is not
 recoverable through public lookup.
 
+For direct HTTP, `resource_access` is at the top level of the admission body;
+the SDK exposes that body as `outcome.result`. The `resource_result` prefix
+belongs only to skill runner output. Invocation `output` is a creation
+snapshot, not current lease status; use the lifecycle route for current state.
+
 ## Use the lease
 
 Supply `Authorization: Bearer <capability>` from the host boundary. For direct
@@ -67,7 +78,10 @@ Keep one MCP request or connection scoped to one lease authority.
 1. `GET /v1/browser-sessions/{session_id}` for status and hard expiry.
 2. `POST /v1/browser-sessions/{session_id}/connections` with a stable
    `Idempotency-Key` to mint a short-lived CDP WebSocket ticket.
-3. Connect to the returned `wss://browser.ausca.com/...` URL using an ordinary
+   This HTTP request has **no JSON body**, not even `{}`. The capability and
+   idempotency key are headers, not body fields.
+3. Read `connection.websocket_url` and connect to that
+   `wss://browser.ausca.com/...` URL using an ordinary
    CDP client.
 4. `DELETE /v1/browser-sessions/{session_id}` to close early, or allow the hard
    expiry to clean it up.
@@ -79,6 +93,12 @@ connection `Idempotency-Key` to recover the same intended ticket; a different
 key means a new ticket issue. Each CDP message is capped at 32 MiB. Status can
 report a terminal lease, but connect requires `ready`. Close is idempotent,
 including after terminal state.
+
+`ticket_issued` means a credential was issued, not that Chromium connected.
+Only a successful CDP handshake proves connection. Use
+`chromium.connectOverCDP(connection.websocket_url)` with Playwright, or
+`puppeteer.connect({ browserWSEndpoint: connection.websocket_url })` with
+Puppeteer. That URL contains a secret: never log it or include it in reports.
 
 Cloudflare treats 10 minutes as an inactivity timeout, not the session's hard
 lifetime. For a 30- or 60-minute lease, issue a CDP command at least once inside
@@ -106,3 +126,8 @@ deliberately.
 
 The active catalog revision and linked schemas are the machine authority. x402
 uses its external V2 semantics; Ausca's internal contracts remain V1.
+
+The [executable purchase and recovery examples](https://github.com/auscahq/ausca/tree/main/examples)
+cover this offer. CLI requires `--idempotency-key`; paid MCP tools require
+`ausca_idempotency_key`. Save one unique key before purchase and reuse unchanged
+input on recovery. A new key buys a new lease, even for identical input.

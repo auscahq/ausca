@@ -61,7 +61,8 @@ invocation state carries its `output_digest`. Results up to 64 KiB arrive
 inline as `output`; a larger result arrives as `output_artifact`, an immutable
 artifact reference with its content digest and size, whose bytes are that
 same document. Mint a 60-second download URL for it with
-`POST /v1/artifacts/{artifact_ref}/access` (`Idempotency-Key` required) and
+`POST /v1/artifacts/{artifact_ref}/access` (`Idempotency-Key` required, **no body**,
+not even `{}`) and
 verify the downloaded bytes against `content_digest`. Result artifacts are
 retained for 24 hours, so copy or process needed output before that deadline.
 A failed invocation reports `failure.code` and `failure.message`; the payment
@@ -113,3 +114,20 @@ receipt are stop conditions, not permission to bypass the service.
 Ausca owns provider access, credentials, execution, and receipt production.
 Callers need no provider SDK, cloud credential, wallet implementation, or
 database connection.
+
+## Bindings and executable recovery
+
+`Document OCR` is the display name, `document.ocr` the catalog offer, and
+`ausca/document-ocr#invoke` the skill runner. Read revision, revision digest,
+input/output schema digests, and route with `ausca price document.ocr --json`
+or the linked catalog. The SDK builds the envelope from these live bindings;
+do not retype hashes from prose. `artifactInput(commitment)` converts its
+camelCase commitment into the exact snake_case offer input.
+
+Use the [executable purchase and recovery examples](https://github.com/auscahq/ausca/tree/main/examples).
+CLI requires `--idempotency-key`; paid MCP requires `ausca_idempotency_key`.
+Save that key before paying and reuse unchanged input on recovery. A new key
+buys again. Read headers case-insensitively with
+`response.headers.get("payment-response")` and honor `Retry-After` on 202.
+Artifact-access MCP arguments contain `artifact_ref` and `idempotency_key`;
+they are not an HTTP JSON body.
