@@ -90,3 +90,24 @@ two documented transport views, not different payment protocols. Use a bounded
 spend policy before signing, never infer human price from atomic amount alone.
 
 See `browser-wallet.mjs` for an injected browser wallet: no private-key export.
+
+## Complete task journeys
+
+`journeys.mjs` composes the same `purchase()` primitive into four runnable,
+dependency-injected workflows without adding another CLI or SDK abstraction:
+
+- `runBrowserJourney()` buys a lease, checks readiness, mints a bodyless CDP
+  ticket, gives the secret URL to caller-owned Playwright/Puppeteer code, and
+  closes the lease in `finally`;
+- `receiveVerificationCode()` buys an inbox, hands the address to the caller's
+  sign-in flow, performs bounded cursor-based waits, reads untrusted mail, and
+  deletes the inbox in `finally`;
+- `extractAndAnalyzeDocument()` commits bytes once and reuses the immutable
+  artifact in two separately identified and approved OCR and analysis buys;
+- `transcribeWithTimings()` commits media, buys transcription, and refuses an
+  inline result without valid timed segments.
+
+Callbacks keep application-specific automation and code extraction outside
+Ausca. Capabilities and WebSocket URLs stay in memory and are never returned in
+public proof. Import these functions into the agent host; the tests show the
+minimum ports and exact lifecycle behavior.

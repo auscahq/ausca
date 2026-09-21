@@ -2,13 +2,14 @@
   "$schema": "https://context7.com/schema/context7.json",
   "projectTitle": "Ausca clients and agent integrations",
   "description": "Typed TypeScript and Python clients, a CLI, and a local MCP server for Ausca pay-per-call agent infrastructure.",
-  "folders": ["packages", "python"],
+  "folders": ["packages", "python", "examples"],
   "excludeFolders": ["dist", "node_modules", "tests", "__pycache__"],
   "excludeFiles": ["CHANGELOG.md"],
   "rules": [
     "Use the ausca package as the default TypeScript front door and @ausca/sdk only for the library-only engine.",
     "Keep payment behind PaymentAuthority and enforce an explicit per-call cap before signing.",
     "Commit document and media bytes through the keyless artifact ingress before invoking an artifact-backed offer.",
-    "Reuse the same idempotency key for an uncertain retry; never create a second purchase to discover the first outcome."
+    "Reuse the same idempotency key for an uncertain retry; never create a second purchase to discover the first outcome.",
+    "Use examples/journeys.mjs for browser, inbox, document, and transcription lifecycle composition without adding another client abstraction."
   ]
 }

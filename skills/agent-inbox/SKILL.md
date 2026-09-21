@@ -7,7 +7,9 @@ description: Create and extend a temporary receive-only email address through Au
 
 Use Agent Inbox when an agent needs a random address for verification mail,
 sign-in links, receipts, or another bounded inbound workflow. One paid create
-returns a receive-only address under `mail.ausca.com`.
+returns a receive-only temporary address under `mail.ausca.com`. It fits
+disposable-email and throwaway-inbox workflows where the agent still needs
+bounded polling, message reads, attachment safety, and optional renewal.
 
 **Agent Inbox** is the display name. The catalog offers are `inbox.receive`
 and `inbox.extend`; the skill runners are `ausca/agent-inbox#create` and

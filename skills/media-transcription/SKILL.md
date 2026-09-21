@@ -6,9 +6,10 @@ description: Transcribe one immutable audio or video artifact through Ausca's me
 # Ausca Media Transcription
 
 Use Media Transcription when an agent needs normalized text from one audio or
-video artifact. The service is asynchronous. The price is $0.40 to $1.30 USD
-for an artifact up to 10 MiB, sized by artifact bytes; preparation fixes the
-exact amount before approval.
+video artifact. It is the Ausca speech-to-text, audio-to-text, and video
+transcription surface. The service is asynchronous. The price is $0.40 to
+$1.30 USD for an artifact up to 10 MiB, sized by artifact bytes; preparation
+fixes the exact amount before approval.
 
 The result contains transcript text, language, source binding, and timed speech
 `segments` (`start_seconds`, `end_seconds`, `text`). Times are seconds from the
