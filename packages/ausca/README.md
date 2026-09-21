@@ -23,9 +23,10 @@ const client = AuscaClient.withLocalKey({
   maxPaymentUsd: 0.5,                        // hard per-call cap
 });
 
-const outcome = await client.invoke("browser.session", { duration_seconds: 600 });
-console.log(outcome.result);
-console.log(outcome.payment?.transaction); // settlement proof
+const outcome = await client.invoke("browser.session", { duration_seconds: 600 }, {
+  idempotencyKey: savedPurchaseKey, // persist a unique key before paying
+});
+// Keep outcome.result.resource_access private; it contains a bearer capability.
 ```
 
 `invoke` resolves the offer's immutable revision, schema digests, and payable
@@ -41,7 +42,8 @@ intentional purchase, even when its input is identical.
 npx ausca catalog
 npx ausca price document.ocr
 AUSCA_PRIVATE_KEY=0x... AUSCA_MAX_PAYMENT_USD=0.50 \
-  npx ausca invoke browser.session '{"duration_seconds":600}'
+  npx ausca invoke browser.session '{"duration_seconds":600}' \
+  --idempotency-key browser-attempt-20260903-0001
 # Reuse this key only to recover that same intended purchase:
 npx ausca invoke browser.session '{"duration_seconds":600}' \
   --idempotency-key browser-attempt-20260903-0001
@@ -50,9 +52,13 @@ npx ausca invoke browser.session '{"duration_seconds":600}' \
 ## MCP
 
 The local server that pays where the key lives. Tools are derived from the
-live catalog at startup, one per active offer. Paid tools accept optional
-`ausca_idempotency_key` for recovery; omit it for every new intentional
-purchase and reuse it only after an uncertain response.
+live catalog at startup, one per active offer. Paid tools require
+`ausca_idempotency_key`. Save a unique key before each new intended purchase
+and reuse it with unchanged input for recovery. CLI `invoke` similarly requires
+`--idempotency-key` and accepts inline JSON, a bare file path, `@file`, or stdin.
+`price --json` includes immutable revision/schema/pricing digests and route.
+Resource responses contain private capabilities: do not publish raw output.
+See the [executable caller journeys](https://github.com/auscahq/ausca/tree/main/examples).
 
 ```json
 {

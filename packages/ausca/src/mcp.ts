@@ -69,9 +69,10 @@ function withInvocationIdentity(schema: Record<string, unknown>): Record<string,
         minLength: 16,
         maxLength: 128,
         description:
-          "Optional caller-owned identity for recovery. Reuse it only for the same intentional purchase; omit it for a new purchase.",
+          "Required caller-owned purchase identity. Save before payment and reuse with unchanged input to recover an uncertain response. A different key authorizes another purchase.",
       },
     },
+    required: [...new Set([...(Array.isArray(schema.required) ? schema.required : []), IDEMPOTENCY_ARGUMENT])],
   };
 }
 
@@ -241,12 +242,12 @@ export async function buildMcpServer(env: Environment): Promise<Server> {
         );
       }
       const { [IDEMPOTENCY_ARGUMENT]: idempotencyKey, ...input } = args;
-      if (idempotencyKey !== undefined && typeof idempotencyKey !== "string") {
-        throw new Error(`${IDEMPOTENCY_ARGUMENT} must be a string`);
+      if (typeof idempotencyKey !== "string") {
+        throw new Error(`${IDEMPOTENCY_ARGUMENT} is required before payment. Reuse the same key and input to recover; a new key buys again.`);
       }
       return textResult(
         await client.invoke(tool.offerId as string, input, {
-          ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+          idempotencyKey,
         }),
       );
     } catch (error) {

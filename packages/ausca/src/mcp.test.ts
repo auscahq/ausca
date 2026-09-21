@@ -40,7 +40,7 @@ describe("ausca mcp server", () => {
       const commit = tools.find((tool) => tool.name === "ausca_commit_artifact");
       expect(commit?.inputSchema.properties).toHaveProperty("ausca_idempotency_key");
       const echo = tools.find((tool) => tool.name === "ausca_echo");
-      expect(echo?.inputSchema.required).toEqual(["message"]);
+      expect(echo?.inputSchema.required).toEqual(["message", "ausca_idempotency_key"]);
       expect(echo?.inputSchema.properties).toHaveProperty("ausca_idempotency_key");
       expect(echo?.description).toContain("$0.01 per call");
       await client.close();

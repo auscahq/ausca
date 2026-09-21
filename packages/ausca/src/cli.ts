@@ -21,15 +21,17 @@ export interface CliEnvironment {
 const USAGE = `ausca: metered agent infrastructure services, paid per call
 
   ausca catalog                    active offers, prices, routes
-  ausca price <offer-id>           published price policy
-  ausca invoke <offer-id> [input] [--idempotency-key <key>]
-                                     paid invocation; input inline, @file, or stdin
+  ausca price <offer-id> [--json]  published price and immutable binding
+  ausca invoke <offer-id> [input] --idempotency-key <key>
+                                     paid invocation; input JSON, file, @file, or stdin
   ausca commit <file> [--idempotency-key <key>]
                                      artifact commitment for document and media offers
   ausca mcp                        local MCP server over stdio
 
 Environment: AUSCA_PRIVATE_KEY and AUSCA_MAX_PAYMENT_USD pay invocations;
-AUSCA_NETWORK overrides the payment network; AUSCA_ORIGIN overrides the service.`;
+AUSCA_NETWORK overrides the payment network; AUSCA_ORIGIN overrides the service.
+Save one unique purchase key (16–128 bytes) before invoking. After an uncertain
+response, reuse that key and the same input; a new key authorizes a new purchase.`;
 
 const MEDIA_TYPES: Readonly<Record<string, string>> = {
   pdf: "application/pdf",
@@ -120,7 +122,13 @@ async function resolveInput(argument: string | undefined, environment: CliEnviro
   } else if (argument.startsWith("@")) {
     text = await readFile(argument.slice(1), "utf8");
   } else {
-    text = argument;
+    try {
+      return JSON.parse(argument);
+    } catch {
+      text = await readFile(argument, "utf8").catch(() => {
+        throw new Error("input must be JSON, a readable file path, @file, or - for stdin");
+      });
+    }
   }
   try {
     return JSON.parse(text);
@@ -147,19 +155,36 @@ export async function runCli(argv: readonly string[], environment: CliEnvironmen
         return 0;
       }
       case "price": {
-        const [offerId] = rest;
-        if (!offerId) {
-          throw new Error("usage: ausca price <offer-id>");
+        const arguments_ = rest.filter((value) => value !== "--json");
+        const [offerId] = arguments_;
+        if (!offerId || arguments_.length !== 1 || offerId.startsWith("--")) {
+          throw new Error("usage: ausca price <offer-id> [--json]");
         }
         const client = clientFromEnvironment(environment.env);
-        environment.write(JSON.stringify(await client.price(offerId), null, 2));
+        const offer = await client.offer(offerId);
+        environment.write(JSON.stringify({
+          ...offer.price,
+          offer_id: offer.offerId,
+          offer_revision: offer.revision,
+          offer_revision_digest: offer.revisionDigest,
+          pricing_policy_digest: offer.pricingPolicyDigest,
+          input_schema_digest: offer.inputSchemaDigest,
+          output_schema_digest: offer.outputSchemaDigest,
+          route: { method: offer.routeMethod, path: offer.routePath },
+        }, null, 2));
         return 0;
       }
       case "invoke": {
         const { offerId, inputArgument, idempotencyKey } = invocationArguments(rest);
         const client = clientFromEnvironment(environment.env, { requirePayment: true });
+        if (idempotencyKey === undefined) {
+          throw new Error("paid invocations require --idempotency-key <key> (16–128 bytes). Save it before paying; reuse it with the same input to recover. A new key buys again.");
+        }
         const input = await resolveInput(inputArgument, environment);
         const outcome = await client.invoke(offerId, input, { idempotencyKey });
+        if (outcome.result && typeof outcome.result === "object" && "resource_access" in outcome.result) {
+          environment.writeError("This result contains private resource capabilities. Store it securely; do not publish raw output.");
+        }
         environment.write(JSON.stringify(outcome, null, 2));
         return 0;
       }

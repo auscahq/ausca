@@ -14,6 +14,7 @@ import pytest
 from ausca import (
     ArtifactError,
     AuscaClient,
+    InvocationUncertainError,
     PaymentReceipt,
 )
 from ausca.cli import _commit_args, _invocation_args, media_type_for, run
@@ -114,6 +115,41 @@ def test_reads_need_no_wallet(service: str) -> None:
     assert state["state"] == "completed"
 
 
+def test_probe_never_uses_a_configured_paying_authority(service: str) -> None:
+    class NeverPay(DelegatedAuthority):
+        def request(self, *_args):
+            raise AssertionError("probe invoked payment authority")
+
+    response = AuscaClient(payment=NeverPay(), origin=service).probe("echo.test", {})
+    assert response.status_code == 402
+    assert _Service.seen == {"unsigned": 1}
+
+
+def test_uncertain_delivery_preserves_purchase_identity(service: str) -> None:
+    class LostResponse(DelegatedAuthority):
+        def request(self, http, method, url, json_body):
+            super().request(http, method, url, json_body)
+            raise httpx.ReadError("lost response")
+
+    key = "python-recovery-purchase-0001"
+    with pytest.raises(InvocationUncertainError) as caught:
+        AuscaClient(payment=LostResponse(), origin=service).invoke("echo.test", {}, idempotency_key=key)
+    assert caught.value.identity.idempotency_key == key
+    assert _Service.seen["signed"] == 1
+
+
+def test_invalid_receipt_does_not_lose_identity_after_payment(service: str) -> None:
+    class UnreadableReceipt(DelegatedAuthority):
+        def receipt(self, response):
+            raise ValueError("invalid settlement proof")
+
+    key = "python-recovery-purchase-0002"
+    with pytest.raises(InvocationUncertainError) as caught:
+        AuscaClient(payment=UnreadableReceipt(), origin=service).invoke("echo.test", {}, idempotency_key=key)
+    assert caught.value.identity.idempotency_key == key
+    assert _Service.seen["signed"] == 1
+
+
 def test_cli_catalog_and_price(service: str) -> None:
     stdout = StringIO()
     assert run(["catalog"], {"AUSCA_ORIGIN": service}, stdout, StringIO()) == 0
@@ -121,8 +157,12 @@ def test_cli_catalog_and_price(service: str) -> None:
     assert listing[0]["offer_id"] == "echo.test"
 
     stdout = StringIO()
-    assert run(["price", "echo.test"], {"AUSCA_ORIGIN": service}, stdout, StringIO()) == 0
-    assert json.loads(stdout.getvalue())["model"] == "fixed"
+    assert run(["price", "echo.test", "--json"], {"AUSCA_ORIGIN": service}, stdout, StringIO()) == 0
+    price = json.loads(stdout.getvalue())
+    assert price["model"] == "fixed"
+    assert price["offer_revision_digest"] == "sha256:" + "a" * 64
+    assert price["input_schema_digest"] == "sha256:" + "b" * 64
+    assert price["output_schema_digest"] == "sha256:" + "c" * 64
 
 
 def test_cli_refuses_key_without_cap(service: str) -> None:

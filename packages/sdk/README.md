@@ -12,7 +12,7 @@ directly when you only need the library.
 ## Client
 
 ```ts
-import { AuscaClient } from "@ausca/sdk";
+import { AuscaClient, artifactInput } from "@ausca/sdk";
 
 const client = AuscaClient.withLocalKey({
   privateKey: process.env.AUSCA_PRIVATE_KEY,
@@ -21,7 +21,10 @@ const client = AuscaClient.withLocalKey({
 
 const offer = await client.offer("document.ocr");
 const price = await client.price("document.ocr");
-const outcome = await client.invoke("document.ocr", { artifact });
+const commitment = await client.commit(bytes, "application/pdf", { idempotencyKey: savedUploadKey });
+const outcome = await client.invoke("document.ocr", { artifact: artifactInput(commitment) }, {
+  idempotencyKey: savedPurchaseKey, // persist this unique key before paying
+});
 const state = await client.invocation("inv_...");
 ```
 
@@ -30,6 +33,18 @@ exactly as the catalog declares. Each `invoke` starts with a
 fresh idempotency key. For recovery after an uncertain response, retry with
 the same caller-owned `idempotencyKey`; use a new key for a new intentional
 purchase, even when the input is identical.
+
+`InvocationUncertainError.identity` retains the offer id and key if transport
+fails. No automatic purchase retry is performed. `onTrace` optionally reports
+identity, request/revision digests, phase, HTTP status, and timing—never inputs,
+headers, keys, or capabilities. Its first `request` callback runs before any
+payment and may stop the call if durable identity storage fails; subsequent
+diagnostic failures cannot turn a completed payment into a retry.
+
+`client.probe(offerId, input)` returns the unsigned HTTP response and never
+invokes payment authority, even on a funded client. Inspect the standard
+`payment-required` header with the case-insensitive `Headers.get` API.
+See the [executable recovery and browser-wallet examples](https://github.com/auscahq/ausca/tree/main/examples).
 
 ## Payment authorities
 
@@ -53,6 +68,9 @@ creates a fresh temporary commitment on every call. Pass
 `{ idempotencyKey: "..." }` only to recover the same uncertain upload. The
 client verifies the returned digest-backed evidence and returns the commitment
 the invocation input carries. No account or API token is needed.
+SDK commitment fields are camelCase; `artifactInput(commitment)` is the one
+conversion into canonical snake_case business input. Do not pass the SDK
+commitment object directly as `input.artifact`.
 `ArtifactStore` remains the narrow port for a custom storage policy.
 
 Successful paid state includes `receipt_ref.public_url`, an immutable

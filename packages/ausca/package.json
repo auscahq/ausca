@@ -1,6 +1,6 @@
 {
   "name": "ausca",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Ausca metered agent infrastructure services, paid per call under a hard USD cap with receipt-backed results. One package, three doors: the @ausca/sdk client, CLI verbs, and a local MCP server that pays where the key lives.",
   "license": "MIT",
   "homepage": "https://ausca.com",
@@ -32,7 +32,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@ausca/sdk": "^0.2.0",
+    "@ausca/sdk": "^0.2.1",
     "@modelcontextprotocol/sdk": "^1.30.0"
   },
   "peerDependencies": {

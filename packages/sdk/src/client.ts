@@ -10,6 +10,7 @@ import {
   type PaymentAuthority,
   type PaymentReceipt,
 } from "./payment.js";
+import { sha256Hex } from "./digest.js";
 
 // The Ausca client: catalog-bound paid invocations. It resolves an offer's
 // immutable binding from the live catalog, builds the exact envelope with a
@@ -24,12 +25,24 @@ export const SKILL_URL = `${ORIGIN}/SKILL.md`;
 export class AuscaError extends Error {}
 export class CatalogError extends AuscaError {}
 export class OfferNotActiveError extends AuscaError {}
+export interface InvocationIdentity {
+  readonly offerId: string;
+  readonly idempotencyKey: string;
+}
+
+/** The response is uncertain, not permission to make another purchase. */
+export class InvocationUncertainError extends AuscaError {
+  constructor(readonly identity: InvocationIdentity) {
+    super(`Invocation response is uncertain. Recover ${identity.offerId} with the same input and idempotencyKey ${identity.idempotencyKey}; do not create a new purchase.`);
+  }
+}
 /** The payable resource answered with a typed business refusal. */
 export class RefusalError extends AuscaError {
   constructor(
     message: string,
     readonly status: number,
     readonly body: unknown,
+    readonly identity?: InvocationIdentity,
   ) {
     super(message);
   }
@@ -61,6 +74,8 @@ export interface Offer {
   readonly inputSchemaDigest: string;
   readonly inputSchemaPath: string;
   readonly outputSchemaDigest: string;
+  readonly outputSchemaPath: string;
+  readonly pricingPolicyDigest: string;
   readonly routeMethod: string;
   readonly routePath: string;
   readonly price: Price;
@@ -73,6 +88,22 @@ export interface InvocationResult {
   /** Settlement proof, or null when the call needed no payment. */
   readonly payment: PaymentReceipt | null;
   readonly status: number;
+  readonly identity: InvocationIdentity;
+}
+
+/** Safe, opt-in diagnostics: no input, credentials, capabilities, or raw headers. */
+export interface InvocationTrace extends InvocationIdentity {
+  readonly phase: "request" | "response" | "uncertain";
+  readonly requestDigest: string;
+  readonly offerRevisionDigest: string;
+  readonly elapsedMs: number;
+  readonly status?: number;
+}
+
+export interface InvokeOptions {
+  readonly idempotencyKey?: string;
+  /** Persist identity on the request event before allowing payment to proceed. */
+  readonly onTrace?: (event: InvocationTrace) => void | Promise<void>;
 }
 
 /** Short-lived download access for one artifact the service holds. */
@@ -108,7 +139,6 @@ export interface WithLocalKeyOptions extends LocalKeyAuthorityOptions {
 export class AuscaClient {
   private readonly origin: string;
   private readonly baseFetch: typeof globalThis.fetch;
-  private readonly payableFetch: typeof globalThis.fetch;
   private readonly payment: PaymentAuthority;
   private readonly artifacts: ArtifactStore;
   private catalogDocument: Catalog | null = null;
@@ -117,7 +147,6 @@ export class AuscaClient {
     this.origin = (options.origin ?? ORIGIN).replace(/\/$/, "");
     this.baseFetch = options.fetch ?? globalThis.fetch;
     this.payment = options.payment;
-    this.payableFetch = options.payment.wrapFetch(this.baseFetch);
     this.artifacts = options.artifacts ?? auscaArtifactStore({ origin: this.origin, fetch: this.baseFetch });
   }
 
@@ -168,6 +197,8 @@ export class AuscaClient {
       inputSchemaDigest: (entry.input_schema as { digest: string }).digest,
       inputSchemaPath: (entry.input_schema as { public_path: string }).public_path,
       outputSchemaDigest: (entry.output_schema as { digest: string }).digest,
+      outputSchemaPath: (entry.output_schema as { public_path: string }).public_path,
+      pricingPolicyDigest: price.policy_digest,
       routeMethod: (entry.route as { method: string }).method,
       routePath: (entry.route as { path: string }).path,
       artifactInputMode: (entry.artifact as { input_mode: string }).input_mode,
@@ -226,16 +257,55 @@ export class AuscaClient {
   async invoke(
     offerId: string,
     input: unknown,
-    options?: { idempotencyKey?: string },
+    options?: InvokeOptions,
   ): Promise<InvocationResult> {
     const offer = await this.offer(offerId);
     const body = await this.envelope(offer, input, options?.idempotencyKey);
-    const response = await this.payableFetch(`${this.origin}${offer.routePath}`, {
-      method: offer.routeMethod,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
+    const identity = { offerId, idempotencyKey: body.idempotency_key as string };
+    const serialized = JSON.stringify(body);
+    const requestDigest = `sha256:${await sha256Hex(new TextEncoder().encode(serialized))}`;
+    const started = performance.now();
+    const trace = (phase: InvocationTrace["phase"], status?: number) => options?.onTrace?.({
+      ...identity, phase, requestDigest, offerRevisionDigest: offer.revisionDigest,
+      elapsedMs: performance.now() - started, ...(status === undefined ? {} : { status }),
     });
-    const text = await response.text();
+    // A caller may refuse or fail to persist identity here. No payment has happened.
+    await trace("request");
+    let response: Response;
+    let text: string;
+    let transportFailed = false;
+    let responseMayHaveExecuted = false;
+    try {
+      const send = this.payment.wrapFetch(async (request, init) => {
+        const outgoing = new Request(request, init);
+        if (await outgoing.clone().text() !== serialized) {
+          throw new AuscaError("payment authority changed the bound invocation bytes");
+        }
+        let result: Response;
+        try {
+          result = await this.baseFetch(outgoing);
+        } catch (error) {
+          transportFailed = true;
+          throw error;
+        }
+        responseMayHaveExecuted ||= result.ok || result.status >= 500;
+        // Diagnostics after an effect must never turn success into a retry.
+        await Promise.resolve().then(() => trace("response", result.status)).catch(() => {});
+        return result;
+      });
+      response = await send(`${this.origin}${offer.routePath}`, {
+        method: offer.routeMethod,
+        headers: { "content-type": "application/json" },
+        body: serialized,
+      });
+      text = await response.text();
+    } catch (error) {
+      // A policy refusal before payment (for example, a spend cap) is not an
+      // uncertain purchase. Preserve its useful diagnostic for the caller.
+      if (!transportFailed && !responseMayHaveExecuted) throw error;
+      await Promise.resolve().then(() => trace("uncertain")).catch(() => {});
+      throw new InvocationUncertainError(identity);
+    }
     let result: unknown = text;
     try {
       result = JSON.parse(text);
@@ -244,12 +314,29 @@ export class AuscaClient {
     }
     if (!response.ok) {
       throw new RefusalError(
-        `payable resource ${offer.routePath} answered ${response.status}: ${text.slice(0, 512)}`,
+        `payable resource ${offer.routePath} answered ${response.status}; purchase key ${identity.idempotencyKey}. Read the typed body; recover with the same input and key.`,
         response.status,
         result,
+        identity,
       );
     }
-    return { result, payment: this.payment.receipt(response), status: response.status };
+    try {
+      return { result, payment: this.payment.receipt(response), status: response.status, identity };
+    } catch {
+      await Promise.resolve().then(() => trace("uncertain")).catch(() => {});
+      throw new InvocationUncertainError(identity);
+    }
+  }
+
+  /** Inspect the HTTP challenge without ever invoking the payment authority. */
+  async probe(offerId: string, input: unknown, options?: { idempotencyKey?: string }): Promise<Response> {
+    const offer = await this.offer(offerId);
+    const body = await this.envelope(offer, input, options?.idempotencyKey);
+    return this.baseFetch(`${this.origin}${offer.routePath}`, {
+      method: offer.routeMethod,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
   }
 
   /** Read authoritative durable invocation state without a new purchase. */

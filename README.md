@@ -70,7 +70,7 @@ const client = AuscaClient.withLocalKey({
   maxPaymentUsd: 0.5,                        // hard per-call cap
 });
 
-const outcome = await client.invoke("browser.session", { duration_seconds: 600 });
+const outcome = await client.invoke("browser.session", { duration_seconds: 600 }, { idempotencyKey: savedPurchaseKey });
 console.log(outcome.result, outcome.payment?.transaction);
 ```
 
@@ -80,7 +80,7 @@ console.log(outcome.result, outcome.payment?.transaction);
 npx ausca catalog
 npx ausca price document.ocr
 AUSCA_PRIVATE_KEY=0x... AUSCA_MAX_PAYMENT_USD=0.50 \
-  npx ausca invoke browser.session '{"duration_seconds":600}'
+  npx ausca invoke browser.session '{"duration_seconds":600}' --idempotency-key saved-browser-purchase-0001
 ```
 
 **Python**
@@ -93,7 +93,7 @@ pip install ausca
 from ausca import AuscaClient
 
 client = AuscaClient.with_local_key(private_key=key, max_payment_usd=0.50)
-outcome = client.invoke("browser.session", {"duration_seconds": 600})
+outcome = client.invoke("browser.session", {"duration_seconds": 600}, idempotency_key=saved_purchase_key)
 ```
 
 A remote MCP server also runs at `https://ausca.com/mcp` (Streamable HTTP)
@@ -105,7 +105,10 @@ side, which is why the local server exists.
 Every service is an [x402 v2](https://ausca.com/.well-known/x402) payable
 resource. An unsigned request returns the exact payment requirement; the
 client pays it only if it fits your cap, then retries the same bytes with
-the same idempotency key, so an uncertain retry can never buy twice.
+the same idempotency key. Save a unique key before paying and retain it on
+uncertainty; starting another call with a new key is a new purchase. CLI and
+paid MCP calls require an explicit key. Resource admission contains private
+capabilities: never publish the raw result. See [recovery examples](examples).
 Settlement is USDC on Base and every completed invocation carries a receipt
 with a public, hash-only verification page. Payment rails are pluggable
 behind one interface; the official `@x402/*` libraries do all signing.

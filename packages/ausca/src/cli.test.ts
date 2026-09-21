@@ -24,6 +24,17 @@ function testEnvironment(env: Record<string, string>): CliEnvironment & { lines:
 }
 
 describe("ausca cli", () => {
+  it("requires a saved purchase identity before any payable request", async () => {
+    const service = await startAuscaService();
+    try {
+      const environment = testEnvironment({
+        AUSCA_ORIGIN: service.origin, AUSCA_PRIVATE_KEY: TEST_KEY, AUSCA_MAX_PAYMENT_USD: "0.05",
+      });
+      expect(await runCli(["invoke", "echo.test", "{}"], environment)).toBe(1);
+      expect(environment.errors[0]).toContain("--idempotency-key");
+      expect(service.requests).toEqual({ unsigned: 0, signed: 0 });
+    } finally { await service.close(); }
+  });
   it("lists the catalog and reads a price without a wallet", async () => {
     const service = await startAuscaService();
     try {
@@ -33,9 +44,15 @@ describe("ausca cli", () => {
       expect(listing).toHaveLength(1);
       expect(listing[0].offer_id).toBe("echo.test");
 
-      expect(await runCli(["price", "echo.test"], environment)).toBe(0);
-      const price = JSON.parse(environment.lines[1]) as { currency: string };
-      expect(price.currency).toBe("USD");
+      expect(await runCli(["price", "echo.test", "--json"], environment)).toBe(0);
+      expect(JSON.parse(environment.lines[1])).toMatchObject({
+        currency: "USD",
+        offer_revision_digest: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
+        pricing_policy_digest: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
+        input_schema_digest: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
+        output_schema_digest: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
+        route: { method: "POST", path: "/v1/echo" },
+      });
     } finally {
       await service.close();
     }
@@ -93,6 +110,28 @@ describe("ausca cli", () => {
     expect(mediaTypeFor("contract.pdf")).toBe("application/pdf");
     expect(mediaTypeFor("call.MP3")).toBe("audio/mpeg");
     expect(mediaTypeFor("mystery.bin")).toBe("application/octet-stream");
+  });
+
+  it("accepts a bare input file path and retains the caller's purchase key", async () => {
+    const service = await startAuscaService();
+    const directory = await mkdtemp(join(tmpdir(), "ausca-cli-input-"));
+    const file = join(directory, "input.json");
+    await writeFile(file, JSON.stringify({ message: "from file" }));
+    try {
+      const environment = testEnvironment({
+        AUSCA_ORIGIN: service.origin, AUSCA_PRIVATE_KEY: TEST_KEY, AUSCA_MAX_PAYMENT_USD: "0.05",
+      });
+      const key = "cli-file-purchase-0001";
+      expect(await runCli(["invoke", "echo.test", file, "--idempotency-key", key], environment)).toBe(0);
+      expect(environment.errors).toEqual([]);
+      expect(JSON.parse(environment.lines[0])).toMatchObject({
+        identity: { offerId: "echo.test", idempotencyKey: key },
+        result: { result: { echo: { message: "from file" } } },
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+      await service.close();
+    }
   });
 
   it("commits a local file without wallet configuration", async () => {

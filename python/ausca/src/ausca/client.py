@@ -9,7 +9,7 @@ authority implementations, never client concerns.
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 import httpx
@@ -30,6 +30,33 @@ SKILL_URL = f"{ORIGIN}/SKILL.md"
 
 class AuscaError(Exception):
     """A refused, failed, or unpayable invocation."""
+
+
+@dataclass(frozen=True)
+class InvocationIdentity:
+    offer_id: str
+    idempotency_key: str
+
+
+class InvocationUncertainError(AuscaError):
+    """The response is uncertain, not permission to make another purchase."""
+
+    def __init__(self, identity: InvocationIdentity) -> None:
+        self.identity = identity
+        super().__init__(
+            f"Invocation response is uncertain. Recover {identity.offer_id} with the same "
+            f"input and idempotency_key {identity.idempotency_key}; do not create a new purchase."
+        )
+
+
+class RefusalError(AuscaError):
+    """A typed HTTP refusal; its body is data, never copied into diagnostic logs."""
+
+    def __init__(self, status: int, body: Any, identity: InvocationIdentity | None = None) -> None:
+        self.status = status
+        self.body = body
+        self.identity = identity
+        super().__init__(f"Payable resource answered {status}; inspect the typed body and preserve the purchase identity.")
 
 
 @dataclass(frozen=True)
@@ -68,6 +95,8 @@ class Offer:
     description: str
     price: Price
     artifact_input_mode: str
+    output_schema_path: str = ""
+    pricing_policy_digest: str = ""
 
 
 @dataclass(frozen=True)
@@ -77,6 +106,7 @@ class InvocationResult:
     result: Any
     payment: PaymentReceipt | None
     status: int
+    identity: InvocationIdentity | None = None
 
 
 class AuscaClient:
@@ -147,6 +177,8 @@ class AuscaClient:
                     input_schema_digest=entry["input_schema"]["digest"],
                     input_schema_path=entry["input_schema"].get("public_path", ""),
                     output_schema_digest=entry["output_schema"]["digest"],
+                    output_schema_path=entry["output_schema"].get("public_path", ""),
+                    pricing_policy_digest=price.get("policy_digest", ""),
                     route_method=entry["route"]["method"],
                     route_path=entry["route"]["path"],
                     title=entry["title"],
@@ -209,8 +241,31 @@ class AuscaClient:
         """Run one paid invocation: probe, pay within policy, return proof."""
         offer = self.offer(offer_id)
         body = self.envelope(offer, invocation_input, idempotency_key)
-        return self.pay_request(
-            f"{self._origin}{offer.route_path}", method=offer.route_method, json_body=body
+        identity = InvocationIdentity(offer_id, body["idempotency_key"])
+        try:
+            response = self._payment.request(
+                self._http, offer.route_method, f"{self._origin}{offer.route_path}", body
+            )
+        except httpx.TransportError:
+            raise InvocationUncertainError(identity) from None
+        try:
+            result = self._invocation_result(response)
+        except RefusalError as error:
+            raise RefusalError(error.status, error.body, identity) from None
+        except Exception:
+            # The request has returned. Failure to decode its proof is not
+            # evidence that a fresh purchase is safe.
+            raise InvocationUncertainError(identity) from None
+        return replace(result, identity=identity)
+
+    def probe(
+        self, offer_id: str, invocation_input: dict[str, Any], *, idempotency_key: str | None = None
+    ) -> httpx.Response:
+        """Inspect the HTTP challenge without invoking the payment authority."""
+        offer = self.offer(offer_id)
+        return self._http.request(
+            offer.route_method, f"{self._origin}{offer.route_path}",
+            json=self.envelope(offer, invocation_input, idempotency_key),
         )
 
     def pay_request(
@@ -218,15 +273,16 @@ class AuscaClient:
     ) -> InvocationResult:
         """One paid call against any resource the configured authority can pay."""
         response = self._payment.request(self._http, method, url, json_body)
-        payment = self._payment.receipt(response)
+        return self._invocation_result(response)
+
+    def _invocation_result(self, response: httpx.Response) -> InvocationResult:
         try:
             result: Any = response.json()
         except ValueError:
             result = response.text
         if response.status_code >= 400:
-            raise AuscaError(
-                f"payable resource {url} answered {response.status_code}: {response.text[:512]}"
-            )
+            raise RefusalError(response.status_code, result)
+        payment = self._payment.receipt(response)
         return InvocationResult(result=result, payment=payment, status=response.status_code)
 
     def invocation(self, invocation_id: str) -> dict[str, Any]:

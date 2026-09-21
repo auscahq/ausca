@@ -6,13 +6,69 @@ import { describe, expect, it } from "vitest";
 
 import { address } from "@ausca-internal/payable/testkit";
 import { ArtifactError } from "./artifacts.js";
-import { AuscaClient, OfferNotActiveError } from "./client.js";
+import { AuscaClient, InvocationUncertainError, OfferNotActiveError, type InvocationTrace } from "./client.js";
 import { inertAuthority, localKeyAuthority, type PaymentAuthority } from "./payment.js";
 import { startAuscaService } from "./testkit.js";
 
 const account = privateKeyToAccount(`0x${"7".repeat(64)}`);
 
 describe("AuscaClient", () => {
+  it("preserves purchase identity after a paid response is lost and never retries automatically", async () => {
+    const service = await startAuscaService();
+    try {
+      const traces: InvocationTrace[] = [];
+      const client = AuscaClient.withLocalKey({
+        account, maxPaymentUsd: 0.05, origin: service.origin,
+        fetch: async (input, init) => {
+          const response = await fetch(input, init);
+          const url = input instanceof Request ? input.url : String(input);
+          if (response.status === 200 && url.endsWith("/v1/echo")) {
+            throw new Error("connection lost after provider accepted payment");
+          }
+          return response;
+        },
+      });
+      const idempotencyKey = "purchase-lost-response-0001";
+      await expect(client.invoke("echo.test", { secret: "never trace this" }, {
+        idempotencyKey, onTrace: (event) => { traces.push(event); },
+      })).rejects.toMatchObject({
+        constructor: InvocationUncertainError,
+        identity: { offerId: "echo.test", idempotencyKey },
+      });
+      expect(service.requests).toEqual({ unsigned: 1, signed: 1 });
+      expect(traces.map((event) => event.phase)).toEqual(["request", "response", "uncertain"]);
+      expect(new Set(traces.map((event) => event.requestDigest)).size).toBe(1);
+      expect(JSON.stringify(traces)).not.toMatch(/never trace this|PAYMENT-SIGNATURE|privateKey/);
+    } finally { await service.close(); }
+  });
+
+  it("lets identity persistence stop payment, but never retries because a response observer failed", async () => {
+    const service = await startAuscaService();
+    try {
+      const client = AuscaClient.withLocalKey({ account, maxPaymentUsd: 0.05, origin: service.origin });
+      await expect(client.invoke("echo.test", {}, {
+        onTrace: () => { throw new Error("identity storage unavailable"); },
+      })).rejects.toThrow("identity storage unavailable");
+      expect(service.requests).toEqual({ unsigned: 0, signed: 0 });
+      const result = await client.invoke("echo.test", {}, {
+        onTrace: (event) => { if (event.phase === "response") throw new Error("observer offline"); },
+      });
+      expect(result.payment?.success).toBe(true);
+      expect(result.identity.idempotencyKey).toMatch(/^ausca-/);
+      expect(service.requests).toEqual({ unsigned: 1, signed: 1 });
+    } finally { await service.close(); }
+  });
+
+  it("probes through the unsigned transport even when a payment authority is configured", async () => {
+    const service = await startAuscaService();
+    try {
+      const client = AuscaClient.withLocalKey({ account, maxPaymentUsd: 0.05, origin: service.origin });
+      const response = await client.probe("echo.test", {});
+      expect(response.status).toBe(402);
+      expect(response.headers.get("payment-required")).toBeTruthy();
+      expect(service.requests).toEqual({ unsigned: 1, signed: 0 });
+    } finally { await service.close(); }
+  });
   it("resolves catalog, offer, and price without any wallet", async () => {
     const service = await startAuscaService();
     try {

@@ -11,6 +11,19 @@ export interface ArtifactCommitment {
   readonly mediaType: string;
 }
 
+/** Project the SDK value into the canonical HTTP/MCP offer input, explicitly. */
+export function artifactInput(commitment: ArtifactCommitment): {
+  readonly artifact_ref: string;
+  readonly content_digest: string;
+  readonly media_type: string;
+} {
+  return {
+    artifact_ref: commitment.artifactRef,
+    content_digest: commitment.contentDigest,
+    media_type: commitment.mediaType,
+  };
+}
+
 export interface ArtifactStore {
   /** Store bytes and return the commitment the invocation input carries. */
   commit(

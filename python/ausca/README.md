@@ -23,9 +23,8 @@ client = AuscaClient.with_local_key(
     max_payment_usd=0.50,                         # hard per-call cap
 )
 
-outcome = client.invoke("browser.session", {"duration_seconds": 600})
-print(outcome.result)
-print(outcome.payment.transaction)  # settlement proof
+outcome = client.invoke("browser.session", {"duration_seconds": 600}, idempotency_key=saved_purchase_key)
+# Keep outcome.result["resource_access"] private: it contains a bearer capability.
 ```
 
 `invoke` resolves the offer's immutable revision, schema digests, and
@@ -41,13 +40,20 @@ A CLI ships with the package:
 ausca catalog
 ausca price document.ocr
 AUSCA_PRIVATE_KEY=0x... AUSCA_MAX_PAYMENT_USD=0.50 \
-  ausca invoke browser.session '{"duration_seconds":600}'
+  ausca invoke browser.session '{"duration_seconds":600}' \
+  --idempotency-key browser-attempt-20260903-0001
 # Reuse this key only to recover that same intended purchase:
 ausca invoke browser.session '{"duration_seconds":600}' \
   --idempotency-key browser-attempt-20260903-0001
 ```
 
 ## Payment rails
+
+CLI purchases require `--idempotency-key`. A bare file path, `@file`, inline
+JSON, or stdin supplies business input. `price --json` includes binding digests.
+`InvocationUncertainError.identity` retains recovery identity on transport
+failure. `client.probe(offer_id, input)` returns the unsigned `httpx.Response`
+without consulting the payment authority, even when a funded key is configured.
 
 Payment is a pluggable authority, never a client concern. The built-in
 `LocalKeyAuthority` pays x402 v2 with a local signing key through the

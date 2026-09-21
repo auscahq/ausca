@@ -77,8 +77,8 @@ function catalogDocument(origin: string): Record<string, unknown> {
           digest: `sha256:${"22".repeat(32)}`,
           public_path: "/schemas/offers/echo.input.schema.json",
         },
-        output_schema: { digest: `sha256:${"33".repeat(32)}` },
-        price: { currency: "USD", model: "fixed", minimum_minor: 1, maximum_minor: 1 },
+        output_schema: { digest: `sha256:${"33".repeat(32)}`, public_path: "/schemas/offers/echo.output.schema.json" },
+        price: { currency: "USD", model: "fixed", minimum_minor: 1, maximum_minor: 1, policy_digest: `sha256:${"44".repeat(32)}` },
       },
     ],
   };

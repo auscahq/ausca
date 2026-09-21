@@ -19,15 +19,17 @@ from ausca.client import AuscaClient, ORIGIN
 USAGE = """ausca: metered agent infrastructure services, paid per call
 
   ausca catalog                    active offers, prices, routes
-  ausca price <offer-id>           published price policy
-  ausca invoke <offer-id> [input] [--idempotency-key <key>]
-                                     paid invocation; input inline, @file, or stdin
+  ausca price <offer-id> [--json]  published price and immutable binding
+  ausca invoke <offer-id> [input] --idempotency-key <key>
+                                     paid invocation; input JSON, file, @file, or stdin
   ausca commit <file> [--idempotency-key <key>]
                                      artifact commitment for document and media offers
 
 Environment: AUSCA_PRIVATE_KEY and AUSCA_MAX_PAYMENT_USD pay invocations;
 AUSCA_NETWORK overrides the payment network; AUSCA_ORIGIN overrides the service.
-The MCP server ships in the npm package: npx ausca mcp."""
+The MCP server ships in the npm package: npx ausca mcp.
+Save one unique purchase key (16–128 bytes) before invoking. After an uncertain
+response, reuse that key and the same input; a new key authorizes a new purchase."""
 
 MEDIA_TYPES = {
     "pdf": "application/pdf",
@@ -98,7 +100,15 @@ def _resolve_input(argument: str | None, stdin: TextIO) -> dict[str, Any]:
     elif argument.startswith("@"):
         text = Path(argument[1:]).read_text()
     else:
-        text = argument
+        try:
+            return json.loads(argument)
+        except ValueError:
+            try:
+                text = Path(argument).read_text()
+            except OSError as error:
+                raise SystemExit(
+                    "input must be JSON, a readable file path, @file, or - for stdin"
+                ) from error
     try:
         return json.loads(text)
     except ValueError as error:
@@ -169,13 +179,29 @@ def run(
         print(_json(listing), file=stdout)
         return 0
     if verb == "price":
-        if len(argv) < 2:
-            raise SystemExit("usage: ausca price <offer-id>")
-        print(_json(_client(env).price(argv[1])), file=stdout)
+        arguments = [value for value in argv[1:] if value != "--json"]
+        if len(arguments) != 1 or arguments[0].startswith("--"):
+            raise SystemExit("usage: ausca price <offer-id> [--json]")
+        offer = _client(env).offer(arguments[0])
+        print(_json({
+            **dataclasses.asdict(offer.price),
+            "offer_id": offer.offer_id, "offer_revision": offer.revision,
+            "offer_revision_digest": offer.revision_digest,
+            "pricing_policy_digest": offer.pricing_policy_digest,
+            "input_schema_digest": offer.input_schema_digest,
+            "output_schema_digest": offer.output_schema_digest,
+            "route": {"method": offer.route_method, "path": offer.route_path},
+        }), file=stdout)
         return 0
     if verb == "invoke":
         offer_id, input_argument, idempotency_key = _invocation_args(argv[1:])
         client = _client(env, require_payment=True)
+        if idempotency_key is None:
+            raise SystemExit(
+                "paid invocations require --idempotency-key <key> (16–128 bytes). "
+                "Save it before paying; reuse it with the same input to recover. "
+                "A new key buys again."
+            )
         outcome = client.invoke(
             offer_id,
             _resolve_input(input_argument, stdin),
