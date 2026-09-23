@@ -144,5 +144,11 @@ Save a unique purchase key before calling: CLI requires `--idempotency-key`,
 paid MCP requires `ausca_idempotency_key`. Recover with unchanged input and
 that key, not a new purchase. HTTP header names are case-insensitive; use
 `response.headers.get("payment-response")`. Honor `Retry-After` on HTTP 202.
+Optional attribution is inert reporting metadata: add
+`"attribution":{"source":"my-agent","campaign":"analysis-workflow"}` to the
+invocation envelope, or use CLI `--source my-agent --campaign analysis-workflow`.
+Labels are lowercase `a-z`, `0-9`, `.`, `_`, `-`; source is at most 64
+characters and campaign 128. It never changes price, payment, execution, or
+recovery identity, and caller values are self-reported.
 Artifact-access MCP arguments contain `artifact_ref` and `idempotency_key`;
 they are **not** a JSON body for the bodyless HTTP route.

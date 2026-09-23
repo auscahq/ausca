@@ -43,6 +43,8 @@ export {
   type Catalog,
   type InvocationResult,
   type InvocationIdentity,
+  type InvocationAttribution,
+  type InvocationEnvelopeOptions,
   type InvocationTrace,
   type InvokeOptions,
   type Offer,

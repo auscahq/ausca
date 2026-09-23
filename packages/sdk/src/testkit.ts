@@ -23,6 +23,7 @@ export interface AuscaServiceOptions {
 export interface AuscaService {
   readonly origin: string;
   readonly requests: { signed: number; unsigned: number };
+  readonly invocationRequests: ReadonlyArray<Record<string, unknown>>;
   readonly artifactRequests: ReadonlyArray<{
     authorization?: string;
     body: Record<string, unknown>;
@@ -87,6 +88,7 @@ function catalogDocument(origin: string): Record<string, unknown> {
 export async function startAuscaService(options?: AuscaServiceOptions): Promise<AuscaService> {
   const amount = options?.amountAtomic ?? "10000";
   const requests = { signed: 0, unsigned: 0 };
+  const invocationRequests: Record<string, unknown>[] = [];
   const artifactRequests: Array<{
     authorization?: string;
     body: Record<string, unknown>;
@@ -158,7 +160,8 @@ export async function startAuscaService(options?: AuscaServiceOptions): Promise<
         });
       }
       if (request.method === "POST" && path === "/v1/echo") {
-        const body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
+        const body = JSON.parse(Buffer.concat(chunks).toString() || "{}") as Record<string, unknown>;
+        invocationRequests.push(body);
         if (body.offer_id !== "echo.test") {
           return json(404, { refusal: { code: "not_served", message: "Offer is not served on this payable resource." } });
         }
@@ -184,6 +187,7 @@ export async function startAuscaService(options?: AuscaServiceOptions): Promise<
   return {
     origin: `http://127.0.0.1:${address(server)}`,
     requests,
+    invocationRequests,
     artifactRequests,
     close: () => new Promise((resolve) => server.close(() => resolve())),
   };

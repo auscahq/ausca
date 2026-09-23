@@ -200,6 +200,12 @@ The [executable purchase and recovery examples](https://github.com/auscahq/ausca
 cover create and extend. CLI requires `--idempotency-key`; paid MCP tools
 require `ausca_idempotency_key`. Save a unique key before each intended
 purchase and preserve it on recovery. A new key buys again.
+Optional attribution is inert reporting metadata: add
+`"attribution":{"source":"my-agent","campaign":"inbox-workflow"}` to the
+create or extend invocation envelope, or use CLI `--source my-agent --campaign
+inbox-workflow`. Labels are lowercase `a-z`, `0-9`, `.`, `_`, `-`; source is at
+most 64 characters and campaign 128. It never changes price, payment,
+execution, or recovery identity, and caller values are self-reported.
 
 Admission JSON contains **two secrets**: mailbox `capability` (read/delete)
 and `extension_authorization` (buy time only). Store it privately, never in a

@@ -42,6 +42,8 @@ describe("ausca mcp server", () => {
       const echo = tools.find((tool) => tool.name === "ausca_echo");
       expect(echo?.inputSchema.required).toEqual(["message", "ausca_idempotency_key"]);
       expect(echo?.inputSchema.properties).toHaveProperty("ausca_idempotency_key");
+      expect(echo?.inputSchema.properties).toHaveProperty("ausca_source");
+      expect(echo?.inputSchema.properties).toHaveProperty("ausca_campaign");
       expect(echo?.description).toContain("$0.01 per call");
       await client.close();
     } finally {
@@ -63,13 +65,21 @@ describe("ausca mcp server", () => {
           arguments: {
             message: "paid",
             ausca_idempotency_key: "mcp-purchase-20260903-0001",
+            ausca_source: "frantic",
+            ausca_campaign: "bounty-131",
           },
         }),
       ) as { payment: { success: boolean }; result: { result: { echo: { message: string } } } };
       expect(outcome.payment.success).toBe(true);
       expect(outcome.result.result.echo.message).toBe("paid");
       expect(outcome.result.result.echo).not.toHaveProperty("ausca_idempotency_key");
+      expect(outcome.result.result.echo).not.toHaveProperty("ausca_source");
+      expect(outcome.result.result.echo).not.toHaveProperty("ausca_campaign");
       expect(service.requests).toEqual({ unsigned: 1, signed: 1 });
+      expect(service.invocationRequests.every((request) =>
+        JSON.stringify(request.attribution) ===
+        JSON.stringify({ source: "frantic", campaign: "bounty-131" })
+      )).toBe(true);
       await client.close();
     } finally {
       await service.close();

@@ -72,6 +72,10 @@ describe("ausca cli", () => {
         '{"message":"hi"}',
         "--idempotency-key",
         "cli-purchase-20260903-0001",
+        "--source",
+        "frantic",
+        "--campaign",
+        "bounty-131",
       ], environment);
       expect(environment.errors).toEqual([]);
       expect(code).toBe(0);
@@ -82,6 +86,35 @@ describe("ausca cli", () => {
       expect(outcome.payment.success).toBe(true);
       expect(outcome.result.result.echo.message).toBe("hi");
       expect(service.requests).toEqual({ unsigned: 1, signed: 1 });
+      expect(service.invocationRequests.every((request) =>
+        JSON.stringify(request.attribution) ===
+        JSON.stringify({ source: "frantic", campaign: "bounty-131" })
+      )).toBe(true);
+    } finally {
+      await service.close();
+    }
+  });
+
+  it("refuses a campaign without a source before paying", async () => {
+    const service = await startAuscaService();
+    try {
+      const environment = testEnvironment({
+        AUSCA_ORIGIN: service.origin,
+        AUSCA_PRIVATE_KEY: TEST_KEY,
+        AUSCA_MAX_PAYMENT_USD: "0.05",
+      });
+      const code = await runCli([
+        "invoke",
+        "echo.test",
+        "{}",
+        "--idempotency-key",
+        "cli-purchase-20260903-0002",
+        "--campaign",
+        "bounty-131",
+      ], environment);
+      expect(code).toBe(1);
+      expect(environment.errors[0]).toContain("--campaign requires --source");
+      expect(service.requests).toEqual({ unsigned: 0, signed: 0 });
     } finally {
       await service.close();
     }

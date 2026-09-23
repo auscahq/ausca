@@ -131,3 +131,9 @@ The [executable purchase and recovery examples](https://github.com/auscahq/ausca
 cover this offer. CLI requires `--idempotency-key`; paid MCP tools require
 `ausca_idempotency_key`. Save one unique key before purchase and reuse unchanged
 input on recovery. A new key buys a new lease, even for identical input.
+Optional attribution is inert reporting metadata: add
+`"attribution":{"source":"my-agent","campaign":"browser-workflow"}` to the
+invocation envelope, or use CLI `--source my-agent --campaign browser-workflow`.
+Labels are lowercase `a-z`, `0-9`, `.`, `_`, `-`; source is at most 64
+characters and campaign 128. It never changes price, payment, execution, or
+recovery identity, and caller values are self-reported.

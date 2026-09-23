@@ -14,13 +14,13 @@ import sys
 from pathlib import Path
 from typing import Any, Mapping, TextIO
 
-from ausca.client import AuscaClient, ORIGIN
+from ausca.client import AuscaClient, InvocationAttribution, ORIGIN
 
 USAGE = """ausca: metered agent infrastructure services, paid per call
 
   ausca catalog                    active offers, prices, routes
   ausca price <offer-id> [--json]  published price and immutable binding
-  ausca invoke <offer-id> [input] --idempotency-key <key>
+  ausca invoke <offer-id> [input] --idempotency-key <key> [--source <source>] [--campaign <campaign>]
                                      paid invocation; input JSON, file, @file, or stdin
   ausca commit <file> [--idempotency-key <key>]
                                      artifact commitment for document and media offers
@@ -115,7 +115,9 @@ def _resolve_input(argument: str | None, stdin: TextIO) -> dict[str, Any]:
         raise SystemExit("invocation input must be valid JSON") from error
 
 
-def _invocation_args(argv: list[str]) -> tuple[str, str | None, str | None]:
+def _invocation_args(
+    argv: list[str],
+) -> tuple[str, str | None, str | None, str | None, str | None]:
     if not argv:
         raise SystemExit(
             "usage: ausca invoke <offer-id> [input] [--idempotency-key <key>]"
@@ -123,6 +125,8 @@ def _invocation_args(argv: list[str]) -> tuple[str, str | None, str | None]:
     offer_id = argv[0]
     input_argument: str | None = None
     idempotency_key: str | None = None
+    source: str | None = None
+    campaign: str | None = None
     index = 1
     while index < len(argv):
         argument = argv[index]
@@ -131,12 +135,24 @@ def _invocation_args(argv: list[str]) -> tuple[str, str | None, str | None]:
                 raise SystemExit("--idempotency-key requires one value")
             idempotency_key = argv[index + 1]
             index += 2
+        elif argument == "--source":
+            if source is not None or index + 1 >= len(argv):
+                raise SystemExit("--source requires one value")
+            source = argv[index + 1]
+            index += 2
+        elif argument == "--campaign":
+            if campaign is not None or index + 1 >= len(argv):
+                raise SystemExit("--campaign requires one value")
+            campaign = argv[index + 1]
+            index += 2
         elif input_argument is None:
             input_argument = argument
             index += 1
         else:
             raise SystemExit(f"unexpected invoke argument {argument}")
-    return offer_id, input_argument, idempotency_key
+    if campaign is not None and source is None:
+        raise SystemExit("--campaign requires --source")
+    return offer_id, input_argument, idempotency_key, source, campaign
 
 
 def _commit_args(argv: list[str]) -> tuple[str, str | None]:
@@ -194,7 +210,7 @@ def run(
         }), file=stdout)
         return 0
     if verb == "invoke":
-        offer_id, input_argument, idempotency_key = _invocation_args(argv[1:])
+        offer_id, input_argument, idempotency_key, source, campaign = _invocation_args(argv[1:])
         client = _client(env, require_payment=True)
         if idempotency_key is None:
             raise SystemExit(
@@ -206,6 +222,11 @@ def run(
             offer_id,
             _resolve_input(input_argument, stdin),
             idempotency_key=idempotency_key,
+            attribution=(
+                InvocationAttribution(source=source, campaign=campaign)
+                if source is not None
+                else None
+            ),
         )
         print(_json(outcome), file=stdout)
         return 0

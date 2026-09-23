@@ -24,6 +24,7 @@ const price = await client.price("document.ocr");
 const commitment = await client.commit(bytes, "application/pdf", { idempotencyKey: savedUploadKey });
 const outcome = await client.invoke("document.ocr", { artifact: artifactInput(commitment) }, {
   idempotencyKey: savedPurchaseKey, // persist this unique key before paying
+  attribution: { source: "my-agent", campaign: "document-workflow" }, // optional
 });
 const state = await client.invocation("inv_...");
 ```
@@ -33,6 +34,12 @@ exactly as the catalog declares. Each `invoke` starts with a
 fresh idempotency key. For recovery after an uncertain response, retry with
 the same caller-owned `idempotencyKey`; use a new key for a new intentional
 purchase, even when the input is identical.
+
+Optional `attribution` records where a call came from. `source` and optional
+`campaign` are lowercase labels (`a-z`, `0-9`, `.`, `_`, `-`), limited to 64
+and 128 characters. They are reporting metadata only: they never affect price,
+payment, execution, or recovery identity. Ausca marks caller values as
+self-reported; only controlled service backfills are trusted.
 
 `InvocationUncertainError.identity` retains the offer id and key if transport
 fails. No automatic purchase retry is performed. `onTrace` optionally reports

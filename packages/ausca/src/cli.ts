@@ -22,7 +22,7 @@ const USAGE = `ausca: metered agent infrastructure services, paid per call
 
   ausca catalog                    active offers, prices, routes
   ausca price <offer-id> [--json]  published price and immutable binding
-  ausca invoke <offer-id> [input] --idempotency-key <key>
+  ausca invoke <offer-id> [input] --idempotency-key <key> [--source <source>] [--campaign <campaign>]
                                      paid invocation; input JSON, file, @file, or stdin
   ausca commit <file> [--idempotency-key <key>]
                                      artifact commitment for document and media offers
@@ -67,11 +67,15 @@ function invocationArguments(rest: readonly string[]): {
   offerId: string;
   inputArgument?: string;
   idempotencyKey?: string;
+  source?: string;
+  campaign?: string;
 } {
   const [offerId, ...arguments_] = rest;
   if (!offerId) throw new Error("usage: ausca invoke <offer-id> [input] [--idempotency-key <key>]");
   let inputArgument: string | undefined;
   let idempotencyKey: string | undefined;
+  let source: string | undefined;
+  let campaign: string | undefined;
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
     if (argument === "--idempotency-key") {
@@ -80,13 +84,28 @@ function invocationArguments(rest: readonly string[]): {
       }
       idempotencyKey = arguments_[index + 1];
       index += 1;
+    } else if (argument === "--source") {
+      if (source !== undefined || !arguments_[index + 1]) {
+        throw new Error("--source requires one value");
+      }
+      source = arguments_[index + 1];
+      index += 1;
+    } else if (argument === "--campaign") {
+      if (campaign !== undefined || !arguments_[index + 1]) {
+        throw new Error("--campaign requires one value");
+      }
+      campaign = arguments_[index + 1];
+      index += 1;
     } else if (inputArgument === undefined) {
       inputArgument = argument;
     } else {
       throw new Error(`unexpected invoke argument ${argument}`);
     }
   }
-  return { offerId, inputArgument, idempotencyKey };
+  if (campaign !== undefined && source === undefined) {
+    throw new Error("--campaign requires --source");
+  }
+  return { offerId, inputArgument, idempotencyKey, source, campaign };
 }
 
 function commitArguments(rest: readonly string[]): {
@@ -175,13 +194,18 @@ export async function runCli(argv: readonly string[], environment: CliEnvironmen
         return 0;
       }
       case "invoke": {
-        const { offerId, inputArgument, idempotencyKey } = invocationArguments(rest);
+        const { offerId, inputArgument, idempotencyKey, source, campaign } = invocationArguments(rest);
         const client = clientFromEnvironment(environment.env, { requirePayment: true });
         if (idempotencyKey === undefined) {
           throw new Error("paid invocations require --idempotency-key <key> (16–128 bytes). Save it before paying; reuse it with the same input to recover. A new key buys again.");
         }
         const input = await resolveInput(inputArgument, environment);
-        const outcome = await client.invoke(offerId, input, { idempotencyKey });
+        const outcome = await client.invoke(offerId, input, {
+          idempotencyKey,
+          ...(source === undefined
+            ? {}
+            : { attribution: { source, ...(campaign === undefined ? {} : { campaign }) } }),
+        });
         if (outcome.result && typeof outcome.result === "object" && "resource_access" in outcome.result) {
           environment.writeError("This result contains private resource capabilities. Store it securely; do not publish raw output.");
         }

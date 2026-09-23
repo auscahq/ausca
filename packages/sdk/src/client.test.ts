@@ -195,6 +195,37 @@ describe("AuscaClient", () => {
       await service.close();
     }
   });
+
+  it("carries validated attribution without changing purchase identity", async () => {
+    const service = await startAuscaService();
+    try {
+      const client = AuscaClient.withLocalKey({
+        account,
+        maxPaymentUsd: 0.05,
+        origin: service.origin,
+      });
+      const outcome = await client.invoke(
+        "echo.test",
+        { message: "attributed" },
+        {
+          idempotencyKey: "attributed-purchase-0001",
+          attribution: { source: "frantic", campaign: "bounty-131" },
+        },
+      );
+      expect(outcome.identity.idempotencyKey).toBe("attributed-purchase-0001");
+      expect(service.invocationRequests).toHaveLength(2);
+      expect(service.invocationRequests.every((request) =>
+        JSON.stringify(request.attribution) ===
+        JSON.stringify({ source: "frantic", campaign: "bounty-131" })
+      )).toBe(true);
+      const offer = await client.offer("echo.test");
+      await expect(
+        client.envelope(offer, {}, undefined, { source: "Frantic" }),
+      ).rejects.toThrow("bounded lowercase labels");
+    } finally {
+      await service.close();
+    }
+  });
 });
 
 describe("Ausca artifact ingress", () => {

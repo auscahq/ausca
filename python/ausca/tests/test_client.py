@@ -8,7 +8,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
-from ausca import AuscaClient, AuscaError
+from ausca import AuscaClient, AuscaError, InvocationAttribution
 
 BASE_USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
 PRIVATE_KEY = "0x" + "7" * 64
@@ -178,6 +178,31 @@ def test_new_calls_get_distinct_keys_and_explicit_recovery_key_is_preserved(reso
         client.envelope(offer, {"a": 1}, "🙂" * 40)
     with pytest.raises(AuscaError, match="16 to 128 clean UTF-8 bytes"):
         client.envelope(offer, {"a": 1}, "purchase-20260903\n0001")
+
+
+def test_attribution_is_validated_and_carried(resource: str) -> None:
+    client = AuscaClient.with_local_key(
+        private_key=PRIVATE_KEY,
+        max_payment_usd=0.25,
+        origin=resource,
+    )
+    outcome = client.invoke(
+        "document.ocr",
+        {"artifact": {"ref": "runx:artifact:x"}},
+        idempotency_key="attributed-purchase-0001",
+        attribution=InvocationAttribution(source="frantic", campaign="bounty-131"),
+    )
+    assert outcome.result["echo"]["attribution"] == {
+        "source": "frantic",
+        "campaign": "bounty-131",
+    }
+    offer = client.offer("document.ocr")
+    with pytest.raises(AuscaError, match="bounded lowercase labels"):
+        client.envelope(
+            offer,
+            {},
+            attribution=InvocationAttribution(source="Frantic"),
+        )
 
 
 def test_refuses_to_pay_above_the_cap_before_signing(resource: str) -> None:

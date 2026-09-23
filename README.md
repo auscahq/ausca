@@ -70,7 +70,10 @@ const client = AuscaClient.withLocalKey({
   maxPaymentUsd: 0.5,                        // hard per-call cap
 });
 
-const outcome = await client.invoke("browser.session", { duration_seconds: 600 }, { idempotencyKey: savedPurchaseKey });
+const outcome = await client.invoke("browser.session", { duration_seconds: 600 }, {
+  idempotencyKey: savedPurchaseKey,
+  attribution: { source: "my-agent", campaign: "browser-workflow" }, // optional
+});
 console.log(outcome.result, outcome.payment?.transaction);
 ```
 
@@ -81,6 +84,7 @@ npx ausca catalog
 npx ausca price document.ocr
 AUSCA_PRIVATE_KEY=0x... AUSCA_MAX_PAYMENT_USD=0.50 \
   npx ausca invoke browser.session '{"duration_seconds":600}' --idempotency-key saved-browser-purchase-0001
+  # Add --source my-agent [--campaign browser-workflow] for optional attribution.
 ```
 
 **Python**
@@ -90,10 +94,15 @@ pip install ausca
 ```
 
 ```python
-from ausca import AuscaClient
+from ausca import AuscaClient, InvocationAttribution
 
 client = AuscaClient.with_local_key(private_key=key, max_payment_usd=0.50)
-outcome = client.invoke("browser.session", {"duration_seconds": 600}, idempotency_key=saved_purchase_key)
+outcome = client.invoke(
+    "browser.session",
+    {"duration_seconds": 600},
+    idempotency_key=saved_purchase_key,
+    attribution=InvocationAttribution(source="my-agent", campaign="browser-workflow"),
+)
 ```
 
 A remote MCP server also runs at `https://ausca.com/mcp` (Streamable HTTP)
@@ -112,6 +121,10 @@ capabilities: never publish the raw result. See [recovery examples](examples).
 Settlement is USDC on Base and every completed invocation carries a receipt
 with a public, hash-only verification page. Payment rails are pluggable
 behind one interface; the official `@x402/*` libraries do all signing.
+
+Optional source/campaign attribution is reporting metadata only and is
+excluded from pricing, payment, execution, and recovery identity. Caller
+labels are self-reported.
 
 Document and media services take an immutable artifact commitment instead
 of raw bytes: `npx ausca commit file.pdf` uploads through the keyless

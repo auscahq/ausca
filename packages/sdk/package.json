@@ -1,6 +1,6 @@
 {
   "name": "@ausca/sdk",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Typed client for Ausca metered agent infrastructure services: catalog-bound invocations paid per call under a hard USD cap, through pluggable payment authorities (x402 v2 today), with receipt-backed results.",
   "license": "MIT",
   "homepage": "https://ausca.com",

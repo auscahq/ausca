@@ -182,12 +182,28 @@ def test_cli_accepts_a_caller_owned_recovery_key() -> None:
             '{"message":"recover"}',
             "--idempotency-key",
             "cli-purchase-20260903-0001",
+            "--source",
+            "frantic",
+            "--campaign",
+            "bounty-131",
         ]
     ) == (
         "echo.test",
         '{"message":"recover"}',
         "cli-purchase-20260903-0001",
+        "frantic",
+        "bounty-131",
     )
+
+    with pytest.raises(SystemExit, match="--campaign requires --source"):
+        _invocation_args([
+            "echo.test",
+            "{}",
+            "--idempotency-key",
+            "cli-purchase-20260903-0002",
+            "--campaign",
+            "bounty-131",
+        ])
 
     assert _commit_args(
         ["scan.pdf", "--idempotency-key", "artifact-20260915-0001"]

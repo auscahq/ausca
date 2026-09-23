@@ -25,6 +25,8 @@ import {
 const PERMISSIVE_INPUT = { type: "object" } as const;
 const MAX_BASE64_LENGTH = 4 * Math.ceil(MAX_ARTIFACT_BYTES / 3);
 const IDEMPOTENCY_ARGUMENT = "ausca_idempotency_key";
+const SOURCE_ARGUMENT = "ausca_source";
+const CAMPAIGN_ARGUMENT = "ausca_campaign";
 
 interface DerivedTool {
   readonly name: string;
@@ -57,8 +59,10 @@ function withInvocationIdentity(schema: Record<string, unknown>): Record<string,
     throw new Error("offer input schema must be an object before MCP projection");
   }
   const current = (properties ?? {}) as Record<string, unknown>;
-  if (IDEMPOTENCY_ARGUMENT in current) {
-    throw new Error(`offer input schema reserves ${IDEMPOTENCY_ARGUMENT} for MCP recovery`);
+  const reserved = [IDEMPOTENCY_ARGUMENT, SOURCE_ARGUMENT, CAMPAIGN_ARGUMENT];
+  const conflict = reserved.find((name) => name in current);
+  if (conflict !== undefined) {
+    throw new Error(`offer input schema reserves ${conflict} for MCP invocation metadata`);
   }
   return {
     ...schema,
@@ -70,6 +74,17 @@ function withInvocationIdentity(schema: Record<string, unknown>): Record<string,
         maxLength: 128,
         description:
           "Required caller-owned purchase identity. Save before payment and reuse with unchanged input to recover an uncertain response. A different key authorizes another purchase.",
+      },
+      [SOURCE_ARGUMENT]: {
+        type: "string",
+        pattern: "^[a-z0-9][a-z0-9._-]{0,63}$",
+        description:
+          "Optional self-reported source attribution. Reporting only; never affects payment or execution.",
+      },
+      [CAMPAIGN_ARGUMENT]: {
+        type: "string",
+        pattern: "^[a-z0-9][a-z0-9._-]{0,127}$",
+        description: `Optional self-reported campaign attribution; requires ${SOURCE_ARGUMENT}.`,
       },
     },
     required: [...new Set([...(Array.isArray(schema.required) ? schema.required : []), IDEMPOTENCY_ARGUMENT])],
@@ -241,13 +256,30 @@ export async function buildMcpServer(env: Environment): Promise<Server> {
           true,
         );
       }
-      const { [IDEMPOTENCY_ARGUMENT]: idempotencyKey, ...input } = args;
+      const {
+        [IDEMPOTENCY_ARGUMENT]: idempotencyKey,
+        [SOURCE_ARGUMENT]: source,
+        [CAMPAIGN_ARGUMENT]: campaign,
+        ...input
+      } = args;
       if (typeof idempotencyKey !== "string") {
         throw new Error(`${IDEMPOTENCY_ARGUMENT} is required before payment. Reuse the same key and input to recover; a new key buys again.`);
+      }
+      if (source !== undefined && typeof source !== "string") {
+        throw new Error(`${SOURCE_ARGUMENT} must be a string`);
+      }
+      if (campaign !== undefined && typeof campaign !== "string") {
+        throw new Error(`${CAMPAIGN_ARGUMENT} must be a string`);
+      }
+      if (campaign !== undefined && source === undefined) {
+        throw new Error(`${CAMPAIGN_ARGUMENT} requires ${SOURCE_ARGUMENT}`);
       }
       return textResult(
         await client.invoke(tool.offerId as string, input, {
           idempotencyKey,
+          ...(source === undefined
+            ? {}
+            : { attribution: { source, ...(campaign === undefined ? {} : { campaign }) } }),
         }),
       );
     } catch (error) {

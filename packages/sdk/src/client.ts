@@ -30,6 +30,12 @@ export interface InvocationIdentity {
   readonly idempotencyKey: string;
 }
 
+/** Optional caller-supplied acquisition context. It never affects payment or execution. */
+export interface InvocationAttribution {
+  readonly source: string;
+  readonly campaign?: string;
+}
+
 /** The response is uncertain, not permission to make another purchase. */
 export class InvocationUncertainError extends AuscaError {
   constructor(readonly identity: InvocationIdentity) {
@@ -100,8 +106,12 @@ export interface InvocationTrace extends InvocationIdentity {
   readonly status?: number;
 }
 
-export interface InvokeOptions {
+export interface InvocationEnvelopeOptions {
   readonly idempotencyKey?: string;
+  readonly attribution?: InvocationAttribution;
+}
+
+export interface InvokeOptions extends InvocationEnvelopeOptions {
   /** Persist identity on the request event before allowing payment to proceed. */
   readonly onTrace?: (event: InvocationTrace) => void | Promise<void>;
 }
@@ -229,6 +239,7 @@ export class AuscaClient {
     offer: Offer,
     input: unknown,
     idempotencyKey?: string,
+    attribution?: InvocationAttribution,
   ): Promise<Record<string, unknown>> {
     if (idempotencyKey === undefined) {
       idempotencyKey = `ausca-${crypto.randomUUID()}`;
@@ -242,6 +253,7 @@ export class AuscaClient {
     ) {
       throw new AuscaError("idempotencyKey must be 16 to 128 clean UTF-8 bytes");
     }
+    if (attribution !== undefined) validateAttribution(attribution);
     return {
       offer_id: offer.offerId,
       offer_revision: offer.revision,
@@ -250,6 +262,7 @@ export class AuscaClient {
       output_schema_digest: offer.outputSchemaDigest,
       input,
       idempotency_key: idempotencyKey,
+      ...(attribution === undefined ? {} : { attribution }),
     };
   }
 
@@ -260,7 +273,12 @@ export class AuscaClient {
     options?: InvokeOptions,
   ): Promise<InvocationResult> {
     const offer = await this.offer(offerId);
-    const body = await this.envelope(offer, input, options?.idempotencyKey);
+    const body = await this.envelope(
+      offer,
+      input,
+      options?.idempotencyKey,
+      options?.attribution,
+    );
     const identity = { offerId, idempotencyKey: body.idempotency_key as string };
     const serialized = JSON.stringify(body);
     const requestDigest = `sha256:${await sha256Hex(new TextEncoder().encode(serialized))}`;
@@ -329,9 +347,18 @@ export class AuscaClient {
   }
 
   /** Inspect the HTTP challenge without ever invoking the payment authority. */
-  async probe(offerId: string, input: unknown, options?: { idempotencyKey?: string }): Promise<Response> {
+  async probe(
+    offerId: string,
+    input: unknown,
+    options?: InvocationEnvelopeOptions,
+  ): Promise<Response> {
     const offer = await this.offer(offerId);
-    const body = await this.envelope(offer, input, options?.idempotencyKey);
+    const body = await this.envelope(
+      offer,
+      input,
+      options?.idempotencyKey,
+      options?.attribution,
+    );
     return this.baseFetch(`${this.origin}${offer.routePath}`, {
       method: offer.routeMethod,
       headers: { "content-type": "application/json" },
@@ -389,5 +416,20 @@ export class AuscaClient {
       downloadUrl: artifact.download_url as string,
       expiresAt: artifact.expires_at as string,
     };
+  }
+}
+
+const ATTRIBUTION_LABEL = /^[a-z0-9][a-z0-9._-]*$/u;
+
+function validateAttribution(attribution: InvocationAttribution): void {
+  if (
+    attribution.source.length > 64 ||
+    !ATTRIBUTION_LABEL.test(attribution.source) ||
+    (attribution.campaign !== undefined &&
+      (attribution.campaign.length > 128 || !ATTRIBUTION_LABEL.test(attribution.campaign)))
+  ) {
+    throw new AuscaError(
+      "attribution source and campaign must be bounded lowercase labels",
+    );
   }
 }

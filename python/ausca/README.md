@@ -16,14 +16,19 @@ pip install ausca
 
 ```python
 import os
-from ausca import AuscaClient
+from ausca import AuscaClient, InvocationAttribution
 
 client = AuscaClient.with_local_key(
     private_key=os.environ["AUSCA_PRIVATE_KEY"],  # pays USDC on Base
     max_payment_usd=0.50,                         # hard per-call cap
 )
 
-outcome = client.invoke("browser.session", {"duration_seconds": 600}, idempotency_key=saved_purchase_key)
+outcome = client.invoke(
+    "browser.session",
+    {"duration_seconds": 600},
+    idempotency_key=saved_purchase_key,
+    attribution=InvocationAttribution(source="my-agent", campaign="browser-workflow"),
+)
 # Keep outcome.result["resource_access"] private: it contains a bearer capability.
 ```
 
@@ -34,6 +39,10 @@ idempotency key. Each call starts with a fresh key. For recovery after an
 uncertain response, pass the same caller-owned `idempotency_key`; use a new
 key for another intentional purchase, even when its input is identical.
 
+Attribution is optional reporting metadata. Source and campaign use bounded
+lowercase labels and never affect price, payment, execution, or recovery
+identity. Caller values are self-reported.
+
 A CLI ships with the package:
 
 ```bash
@@ -41,7 +50,8 @@ ausca catalog
 ausca price document.ocr
 AUSCA_PRIVATE_KEY=0x... AUSCA_MAX_PAYMENT_USD=0.50 \
   ausca invoke browser.session '{"duration_seconds":600}' \
-  --idempotency-key browser-attempt-20260903-0001
+  --idempotency-key browser-attempt-20260903-0001 \
+  --source my-agent --campaign browser-workflow
 # Reuse this key only to recover that same intended purchase:
 ausca invoke browser.session '{"duration_seconds":600}' \
   --idempotency-key browser-attempt-20260903-0001
