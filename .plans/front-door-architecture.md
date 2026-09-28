@@ -157,7 +157,7 @@ Credentials and tooling, so any operator can publish:
   version for a minute after a publish; verify with a clean install of the
   exact new version rather than the "latest" pointer.
 - The platform repository never pins the released client: its canary declares
-  `ausca >=0.0.6` as a devDependency and layers `npm install --no-save
+  `ausca` as a floor-range devDependency and layers `npm install --no-save
   ausca@latest` on top of the locked tree at run time, so a release here never
   requires a change there. After the site is live, `npm run sync:skills` here
   mirrors the served SKILL.md files and `npm run verify:skills` proves the
