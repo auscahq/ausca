@@ -128,7 +128,7 @@ The active catalog revision and linked schemas are the machine authority. x402
 uses its external V2 semantics; Ausca's internal contracts remain V1.
 
 The [executable purchase and recovery examples](https://github.com/auscahq/ausca/tree/main/examples)
-cover this offer. CLI requires `--idempotency-key`; paid MCP tools require
+cover this offer. CLI requires `--idempotency-key`; local paid MCP tools require
 `ausca_idempotency_key`. Save one unique key before purchase and reuse unchanged
 input on recovery. A new key buys a new lease, even for identical input.
 Optional attribution is inert reporting metadata: add

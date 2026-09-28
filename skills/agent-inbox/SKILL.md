@@ -197,8 +197,8 @@ External x402 uses protocol V2. Greenfield internal contracts remain
 V1 and change in place.
 
 The [executable purchase and recovery examples](https://github.com/auscahq/ausca/tree/main/examples)
-cover create and extend. CLI requires `--idempotency-key`; paid MCP tools
-require `ausca_idempotency_key`. Save a unique key before each intended
+cover create and extend. CLI requires `--idempotency-key`; local paid MCP
+tools require `ausca_idempotency_key`. Save a unique key before each intended
 purchase and preserve it on recovery. A new key buys again.
 Optional attribution is inert reporting metadata: add
 `"attribution":{"source":"my-agent","campaign":"inbox-workflow"}` to the
