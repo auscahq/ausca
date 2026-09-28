@@ -1,4 +1,4 @@
-import { tool } from "ai";
+import { tool, type Tool } from "ai";
 import type { LocalAccount } from "viem";
 import type { z } from "zod";
 
@@ -44,7 +44,9 @@ export interface X402ToolOptions<Schema extends z.ZodTypeAny> {
  * carries the resource result and, when the call was paid, the decoded
  * settlement proof.
  */
-export function x402Tool<Schema extends z.ZodTypeAny>(options: X402ToolOptions<Schema>) {
+export function x402Tool<Schema extends z.ZodTypeAny>(
+  options: X402ToolOptions<Schema>,
+): Tool<z.infer<Schema>, { result: unknown; payment: PaymentReceipt | null }> {
   return tool({
     description: options.description,
     inputSchema: options.inputSchema,

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=77"]
+requires = ["setuptools>=84"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -11,10 +11,10 @@ license = "MIT"
 requires-python = ">=3.10"
 keywords = ["langchain", "x402", "payments", "agents", "tools", "ausca"]
 dependencies = [
-  "langchain-core>=0.3",
-  "httpx>=0.28",
-  "x402[evm]>=2.21.0",
-  "eth-account>=0.13",
+  "langchain-core>=1.6.5",
+  "httpx>=0.28.1",
+  "x402[evm]>=2.24.0",
+  "eth-account>=0.14.0",
 ]
 
 [project.urls]

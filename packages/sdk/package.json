@@ -42,19 +42,19 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@x402/evm": "^2.24.0",
-    "@x402/fetch": "^2.24.0"
+    "@x402/evm": "^2.27.0",
+    "@x402/fetch": "^2.27.0"
   },
   "peerDependencies": {
     "viem": ">=2"
   },
   "devDependencies": {
     "@ausca-internal/payable": "*",
-    "@types/node": "^26.4.1",
-    "tsup": "^8.5.0",
-    "typescript": "^5.9.0",
-    "viem": "^2.44.0",
-    "vitest": "^4.0.0"
+    "@types/node": "^26.6.3",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "viem": "^2.56.9",
+    "vitest": "^5.0.2"
   },
   "tsup": {
     "noExternal": [

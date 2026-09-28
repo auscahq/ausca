@@ -7,6 +7,7 @@
     "declaration": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "ignoreDeprecations": "6.0"
   }
 }

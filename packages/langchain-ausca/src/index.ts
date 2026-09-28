@@ -1,4 +1,4 @@
-import { tool } from "@langchain/core/tools";
+import { tool, type StructuredToolInterface } from "@langchain/core/tools";
 import type { LocalAccount } from "viem";
 import type { z } from "zod";
 
@@ -46,7 +46,9 @@ export interface PayableToolOptions<Schema extends z.ZodTypeAny> {
  * result is a JSON string carrying the resource result and, when the call was
  * paid, the decoded settlement proof.
  */
-export function payableTool<Schema extends z.ZodTypeAny>(options: PayableToolOptions<Schema>) {
+export function payableTool<Schema extends z.ZodTypeAny>(
+  options: PayableToolOptions<Schema>,
+): StructuredToolInterface {
   return tool(
     async (input: z.infer<Schema>) => {
       const outcome = await payableCall(
