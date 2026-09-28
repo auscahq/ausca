@@ -155,7 +155,10 @@ export class AuscaClient {
 
   constructor(options: AuscaClientOptions) {
     this.origin = (options.origin ?? ORIGIN).replace(/\/$/, "");
-    this.baseFetch = options.fetch ?? globalThis.fetch;
+    const baseFetch = options.fetch ?? globalThis.fetch;
+    // Never call fetch as this client's method: browser fetch refuses any
+    // receiver other than the global object.
+    this.baseFetch = (input, init) => baseFetch(input, init);
     this.payment = options.payment;
     this.artifacts = options.artifacts ?? auscaArtifactStore({ origin: this.origin, fetch: this.baseFetch });
   }

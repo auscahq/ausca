@@ -59,6 +59,19 @@ describe("AuscaClient", () => {
     } finally { await service.close(); }
   });
 
+  it("calls a supplied fetch the way browser fetch requires", async () => {
+    const service = await startAuscaService();
+    try {
+      // Browser fetch refuses any receiver other than the global object.
+      const browserFetch = function (this: unknown, input: RequestInfo | URL, init?: RequestInit) {
+        if (this !== undefined && this !== globalThis) throw new TypeError("Illegal invocation");
+        return fetch(input, init);
+      };
+      const client = AuscaClient.withLocalKey({ account, maxPaymentUsd: 0.05, origin: service.origin, fetch: browserFetch });
+      expect((await client.invoke("echo.test", {})).payment?.success).toBe(true);
+    } finally { await service.close(); }
+  });
+
   it("probes through the unsigned transport even when a payment authority is configured", async () => {
     const service = await startAuscaService();
     try {
