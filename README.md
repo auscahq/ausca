@@ -161,6 +161,7 @@ is not a separate service or source of pricing truth.
 | [`ausca`](ruby/ausca) | [RubyGems](https://rubygems.org/gems/ausca) | Ruby buyer client; rail-neutral transport port |
 | [`auscahq/ausca`](php) | Packagist submission pending | PHP buyer client; rail-neutral transport port |
 | [`Ausca`](swift) | [Swift Package Manager](https://github.com/auscahq/ausca/releases/tag/v0.1.0); [index submission](https://github.com/SwiftPackageIndex/PackageList/issues/15590) pending | Swift buyer client; rail-neutral transport port |
+| [`ausca`](dart/ausca) | pub.dev first publication pending | Dart buyer client; rail-neutral transport port |
 | [`@ausca/ai-sdk`](packages/ai-sdk) | [npm](https://www.npmjs.com/package/@ausca/ai-sdk) | Vercel AI SDK tools for any x402 v2 resource |
 | [`langchain-ausca`](packages/langchain-ausca) | [npm](https://www.npmjs.com/package/langchain-ausca) | LangChain tools for any x402 v2 resource |
 | [`skills/`](skills) | [ausca.com](https://ausca.com/skills/document-ocr/SKILL.md) | Agent skills, mirrored from the live origin |

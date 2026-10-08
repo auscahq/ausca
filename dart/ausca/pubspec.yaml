@@ -1,0 +1,18 @@
+name: ausca
+version: 0.1.0
+description: Rail-neutral Dart buyer client for Ausca's live pay-per-call agent services.
+homepage: https://ausca.com
+repository: https://github.com/auscahq/ausca/tree/main/dart/ausca
+issue_tracker: https://github.com/auscahq/ausca/issues
+documentation: https://ausca.com/docs
+topics:
+  - agents
+  - x402
+  - mcp
+environment:
+  sdk: ^3.5.0
+dependencies:
+  crypto: ^3.0.7
+  http: ^1.6.0
+dev_dependencies:
+  test: ^1.32.0

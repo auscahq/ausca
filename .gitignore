@@ -6,3 +6,5 @@ __pycache__/
 *.gem
 rust/ausca/target/
 .build/
+dart/ausca/.dart_tool/
+dart/ausca/pubspec.lock

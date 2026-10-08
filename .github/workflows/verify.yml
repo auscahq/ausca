@@ -4,10 +4,14 @@ on:
   pull_request:
     paths-ignore:
       - '**/*.md'
+      - 'dart/ausca/**'
+      - '.github/workflows/verify-dart.yml'
   push:
     branches: [main]
     paths-ignore:
       - '**/*.md'
+      - 'dart/ausca/**'
+      - '.github/workflows/verify-dart.yml'
 
 permissions:
   contents: read
