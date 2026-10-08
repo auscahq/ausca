@@ -156,7 +156,7 @@ is not a separate service or source of pricing truth.
 | [`ausca`](packages/ausca) | [npm](https://www.npmjs.com/package/ausca) | The front door: library, CLI, and local MCP server |
 | [`@ausca/sdk`](packages/sdk) | [npm](https://www.npmjs.com/package/@ausca/sdk) | The typed engine: client, payment authorities, artifact store |
 | [`ausca`](python/ausca) | [PyPI](https://pypi.org/project/ausca/) | Python client and CLI with the same ports |
-| [`ausca`](go) | [Go module](https://proxy.golang.org/github.com/auscahq/ausca/go/@v/v0.1.0.info) | Standard-library buyer client; payment-capable HTTP client port |
+| [`ausca`](go) | [Go module](https://proxy.golang.org/github.com/auscahq/ausca/go/@v/v0.1.1.info) | Standard-library buyer client; payment-capable HTTP client port |
 | [`ausca`](rust/ausca) | [crates.io](https://crates.io/crates/ausca) | Rust buyer client; rail-neutral transport port |
 | [`ausca`](ruby/ausca) | [RubyGems](https://rubygems.org/gems/ausca) | Ruby buyer client; rail-neutral transport port |
 | [`auscahq/ausca`](php) | Packagist submission pending | PHP buyer client; rail-neutral transport port |
