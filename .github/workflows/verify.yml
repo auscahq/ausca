@@ -10,6 +10,7 @@ on:
       - '.github/workflows/verify-dotnet.yml'
       - 'java/ausca/**'
       - '.github/workflows/verify-java.yml'
+      - '.github/workflows/nuget.yml'
   push:
     branches: [main]
     paths-ignore:
@@ -20,6 +21,7 @@ on:
       - '.github/workflows/verify-dotnet.yml'
       - 'java/ausca/**'
       - '.github/workflows/verify-java.yml'
+      - '.github/workflows/nuget.yml'
 
 permissions:
   contents: read

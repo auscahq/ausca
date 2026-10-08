@@ -1,0 +1,40 @@
+name: Publish NuGet
+
+on:
+  push:
+    tags:
+      - dotnet/v*
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: nuget
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '8.0.x'
+      - name: Check release version
+        shell: bash
+        run: |
+          release_version="${GITHUB_REF_NAME#dotnet/v}"
+          project_version=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' dotnet/Ausca/Ausca.csproj)
+          test "$release_version" = "$project_version"
+      - run: dotnet run --project dotnet/Ausca.Tests/Ausca.Tests.csproj -c Release
+      - run: dotnet pack dotnet/Ausca/Ausca.csproj -c Release -warnaserror -o artifacts
+      - uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        id: login
+        with:
+          user: auscaster
+      - name: Publish package
+        shell: bash
+        run: dotnet nuget push "artifacts/Ausca.${GITHUB_REF_NAME#dotnet/v}.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json

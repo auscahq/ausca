@@ -156,11 +156,11 @@ is not a separate service or source of pricing truth.
 | [`ausca`](packages/ausca) | [npm](https://www.npmjs.com/package/ausca) | The front door: library, CLI, and local MCP server |
 | [`@ausca/sdk`](packages/sdk) | [npm](https://www.npmjs.com/package/@ausca/sdk) | The typed engine: client, payment authorities, artifact store |
 | [`ausca`](python/ausca) | [PyPI](https://pypi.org/project/ausca/) | Python client and CLI with the same ports |
-| [`ausca`](go) | [Go module](https://proxy.golang.org/github.com/auscahq/ausca/go/@v/v0.1.1.info) | Standard-library buyer client; payment-capable HTTP client port |
+| [`ausca`](go) | [Go module](https://pkg.go.dev/github.com/auscahq/ausca/go@v0.1.1) | Standard-library buyer client; payment-capable HTTP client port |
 | [`ausca`](rust/ausca) | [crates.io](https://crates.io/crates/ausca) | Rust buyer client; rail-neutral transport port |
 | [`ausca`](ruby/ausca) | [RubyGems](https://rubygems.org/gems/ausca) | Ruby buyer client; rail-neutral transport port |
 | [`auscahq/ausca`](php) | Packagist submission pending | PHP buyer client; rail-neutral transport port |
-| [`Ausca`](swift) | [Swift Package Manager](https://github.com/auscahq/ausca/releases/tag/v0.1.0); [index submission](https://github.com/SwiftPackageIndex/PackageList/issues/15590) pending | Swift buyer client; rail-neutral transport port |
+| [`Ausca`](swift) | [Swift Package Manager](https://github.com/auscahq/ausca/releases/tag/v0.1.0); [index submission](https://github.com/SwiftPackageIndex/PackageList/issues/15591) pending | Swift buyer client; rail-neutral transport port |
 | [`ausca`](dart/ausca) | [pub.dev](https://pub.dev/packages/ausca) | Dart buyer client; rail-neutral transport port |
 | [`Ausca`](dotnet/Ausca) | NuGet first publication pending | .NET buyer client; rail-neutral transport port |
 | [`com.ausca:ausca`](java/ausca) | Maven Central publication pending | JVM buyer client; rail-neutral transport port |
