@@ -38,7 +38,7 @@ if (lockfile.packages?.["packages/ausca"]?.version !== frontDoor.version ||
   fail("package-lock versions differ from package manifests");
 }
 if (context7.$schema !== "https://context7.com/schema/context7.json" ||
-    !context7.folders?.includes("packages") || !context7.folders?.includes("python")) {
+    ["packages", "python", "go", "rust", "ruby", "php", "swift"].some((folder) => !context7.folders?.includes(folder))) {
   fail("Context7 parsing metadata is incomplete");
 }
 if (glama.$schema !== "https://glama.ai/mcp/schemas/server.json" ||

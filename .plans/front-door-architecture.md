@@ -28,6 +28,11 @@ packages/ausca            ausca; default library + CLI + local MCP server
 packages/ai-sdk           @ausca/ai-sdk; vendor-neutral x402 tools
 packages/langchain-ausca  langchain-ausca; vendor-neutral x402 tools
 python/ausca              ausca; typed Python client + CLI
+go                        Go buyer client; stdlib-only core and HTTP payment port
+rust/ausca                Rust buyer client; transport payment port
+ruby/ausca                Ruby buyer client; transport payment port
+php                       PHP buyer client; transport payment port
+swift                     Swift buyer client; transport payment port
 ```
 
 Dependency rules:
@@ -42,6 +47,10 @@ Dependency rules:
   x402 libraries. They do not import the Ausca SDK.
 - The Python client follows the same port and lifecycle shape without trying
   to share implementation code across languages.
+- Go, Rust, Ruby, PHP, and Swift follow the same catalog-bound envelope and recovery
+  invariants. Their rail-neutral ports deliberately avoid embedding wallet
+  credentials or another copy of offer contracts. The live catalog is the
+  source for prices, routes, revisions, and schema digests.
 
 ## Payment boundary
 
@@ -120,9 +129,22 @@ Run locally before any remote mutation:
 npm ci
 npm test
 npm run build
+npm run verify:wire
 python -m pytest python/ausca/tests
 python -m build python/ausca
+(cd go && go test -race ./... && go vet ./...)
+(cd rust/ausca && cargo test --locked && cargo clippy --locked --all-targets -- -D warnings && cargo publish --dry-run --locked)
+(cd ruby/ausca && ruby -Ilib test/client_test.rb && gem build ausca.gemspec)
+php php/tests/client.php
+swift test
 ```
+
+The wire gate reads the published OpenAPI JSON and catalog, then checks the
+shared invocation envelope, active offer routes, and bodyless artifact-access
+contract. Each language tests its emitted envelope and payment/recovery
+boundary locally. A contract change that alters this skeleton requires a
+coordinated client update before release; the live catalog continues to carry
+prices, routes, revisions, and digests without republishing client packages.
 
 Release order:
 
@@ -137,6 +159,14 @@ Release order:
 6. submit the public repository to Context7 and Glama; and
 7. record provider readback and current versions in Ausca's distribution
    runbook.
+
+Additional language releases use their native discovery path: a `go/vX.Y.Z`
+submodule tag for Go; a verified `cargo publish` for Rust; a `ruby/vX.Y.Z` tag
+for the scoped RubyGems Trusted Publisher; a root `vX.Y.Z` tag for Packagist
+and Swift Package Manager. Every release links back to `https://ausca.com` in
+registry metadata or its indexed README. Do not tag or submit a language until
+its own compiler, local lifecycle tests, public catalog proof, and registry
+readback have passed.
 
 Never publish from an untested tree, republish an existing version, or claim a
 directory/package release without registry readback.

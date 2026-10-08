@@ -39,8 +39,31 @@ jobs:
           cache: pip
           cache-dependency-path: python/ausca/pyproject.toml
 
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go/go.mod
+          cache: false
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
+        with:
+          ruby-version: "3.4"
+          bundler-cache: false
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          components: clippy
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
       - name: Verify TypeScript packages
-        run: npm ci && npm run build && npm test && npm audit --audit-level=high
+        run: npm ci && npm run build && npm test && npm run verify:wire && npm audit --audit-level=high
 
       - name: Verify Python packages
         run: |
@@ -49,3 +72,20 @@ jobs:
           python -m build python/ausca
           python -m build python/langchain-ausca
           python -m build python/llama-index-tools-ausca
+
+      - name: Verify Go client
+        working-directory: go
+        run: go test -race ./... && go vet ./...
+
+      - name: Verify Ruby gem
+        working-directory: ruby/ausca
+        run: ruby -Ilib test/client_test.rb && gem build ausca.gemspec
+
+      - name: Verify Rust crate
+        working-directory: rust/ausca
+        run: cargo test --locked && cargo clippy --locked --all-targets -- -D warnings && cargo publish --dry-run --locked
+
+      - name: Verify PHP client
+        run: |
+          for file in php/src/*.php; do php -l "$file"; done
+          php php/tests/client.php

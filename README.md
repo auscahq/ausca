@@ -152,6 +152,11 @@ ingress and returns the commitment the offer input carries.
 | [`ausca`](packages/ausca) | [npm](https://www.npmjs.com/package/ausca) | The front door: library, CLI, and local MCP server |
 | [`@ausca/sdk`](packages/sdk) | [npm](https://www.npmjs.com/package/@ausca/sdk) | The typed engine: client, payment authorities, artifact store |
 | [`ausca`](python/ausca) | [PyPI](https://pypi.org/project/ausca/) | Python client and CLI with the same ports |
+| [`ausca`](go) | Go modules | Standard-library buyer client; payment-capable HTTP client port |
+| [`ausca`](rust/ausca) | crates.io | Rust buyer client; rail-neutral transport port |
+| [`ausca`](ruby/ausca) | RubyGems | Ruby buyer client; rail-neutral transport port |
+| [`auscahq/ausca`](php) | Packagist | PHP buyer client; rail-neutral transport port |
+| [`Ausca`](swift) | Swift Package Manager | Swift buyer client; rail-neutral transport port |
 | [`@ausca/ai-sdk`](packages/ai-sdk) | [npm](https://www.npmjs.com/package/@ausca/ai-sdk) | Vercel AI SDK tools for any x402 v2 resource |
 | [`langchain-ausca`](packages/langchain-ausca) | [npm](https://www.npmjs.com/package/langchain-ausca) | LangChain tools for any x402 v2 resource |
 | [`skills/`](skills) | [ausca.com](https://ausca.com/skills/document-ocr/SKILL.md) | Agent skills, mirrored from the live origin |

@@ -3,3 +3,6 @@ dist/
 dist/
 *.egg-info/
 __pycache__/
+*.gem
+rust/ausca/target/
+.build/

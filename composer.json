@@ -1,0 +1,21 @@
+{
+  "name": "auscahq/ausca",
+  "description": "Rail-neutral PHP client for Ausca pay-per-call agent infrastructure",
+  "type": "library",
+  "license": "MIT",
+  "homepage": "https://ausca.com",
+  "keywords": ["ausca", "x402", "agents", "mcp", "payments"],
+  "support": {
+    "docs": "https://ausca.com/docs",
+    "source": "https://github.com/auscahq/ausca",
+    "issues": "https://github.com/auscahq/ausca/issues"
+  },
+  "require": {
+    "php": ">=8.2"
+  },
+  "autoload": {
+    "psr-4": {
+      "Ausca\\": "php/src/"
+    }
+  }
+}

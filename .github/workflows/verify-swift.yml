@@ -1,0 +1,39 @@
+name: verify-swift
+
+on:
+  pull_request:
+    paths:
+      - Package.swift
+      - Package.resolved
+      - swift/**
+      - .github/workflows/verify-swift.yml
+  push:
+    branches: [main]
+    paths:
+      - Package.swift
+      - Package.resolved
+      - swift/**
+      - .github/workflows/verify-swift.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-swift-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Swift
+        uses: swift-actions/setup-swift@7591e4f04c00624cb043783da51a7fd6ee0a6bf6 # v2
+        with:
+          swift-version: '6.2'
+      - name: Verify Swift package
+        run: swift test
