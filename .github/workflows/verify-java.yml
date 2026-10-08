@@ -1,0 +1,35 @@
+name: verify-java
+
+on:
+  push:
+    paths:
+      - java/ausca/**
+      - .github/workflows/verify-java.yml
+  pull_request:
+    paths:
+      - java/ausca/**
+      - .github/workflows/verify-java.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-java-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  client:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: java/ausca/pom.xml
+      - run: mvn -B -ntp -f java/ausca/pom.xml verify
+      - run: mvn -B -ntp -f java/ausca/pom.xml -Prelease -DskipTests package

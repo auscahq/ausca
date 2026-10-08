@@ -10,3 +10,4 @@ dart/ausca/.dart_tool/
 dart/ausca/pubspec.lock
 dotnet/**/bin/
 dotnet/**/obj/
+java/ausca/target/

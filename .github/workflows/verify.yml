@@ -8,6 +8,8 @@ on:
       - '.github/workflows/verify-dart.yml'
       - 'dotnet/**'
       - '.github/workflows/verify-dotnet.yml'
+      - 'java/ausca/**'
+      - '.github/workflows/verify-java.yml'
   push:
     branches: [main]
     paths-ignore:
@@ -16,6 +18,8 @@ on:
       - '.github/workflows/verify-dart.yml'
       - 'dotnet/**'
       - '.github/workflows/verify-dotnet.yml'
+      - 'java/ausca/**'
+      - '.github/workflows/verify-java.yml'
 
 permissions:
   contents: read

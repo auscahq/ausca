@@ -163,6 +163,7 @@ is not a separate service or source of pricing truth.
 | [`Ausca`](swift) | [Swift Package Manager](https://github.com/auscahq/ausca/releases/tag/v0.1.0); [index submission](https://github.com/SwiftPackageIndex/PackageList/issues/15590) pending | Swift buyer client; rail-neutral transport port |
 | [`ausca`](dart/ausca) | [pub.dev](https://pub.dev/packages/ausca) | Dart buyer client; rail-neutral transport port |
 | [`Ausca`](dotnet/Ausca) | NuGet first publication pending | .NET buyer client; rail-neutral transport port |
+| [`com.ausca:ausca`](java/ausca) | Maven Central publication pending | JVM buyer client; rail-neutral transport port |
 | [`@ausca/ai-sdk`](packages/ai-sdk) | [npm](https://www.npmjs.com/package/@ausca/ai-sdk) | Vercel AI SDK tools for any x402 v2 resource |
 | [`langchain-ausca`](packages/langchain-ausca) | [npm](https://www.npmjs.com/package/langchain-ausca) | LangChain tools for any x402 v2 resource |
 | [`skills/`](skills) | [ausca.com](https://ausca.com/skills/document-ocr/SKILL.md) | Agent skills, mirrored from the live origin |
