@@ -1,0 +1,32 @@
+name: verify-dotnet
+
+on:
+  push:
+    paths:
+      - dotnet/**
+      - .github/workflows/verify-dotnet.yml
+  pull_request:
+    paths:
+      - dotnet/**
+      - .github/workflows/verify-dotnet.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-dotnet-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  client:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet run --project dotnet/Ausca.Tests/Ausca.Tests.csproj -c Release
+      - run: dotnet pack dotnet/Ausca/Ausca.csproj -c Release -warnaserror

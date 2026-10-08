@@ -6,12 +6,16 @@ on:
       - '**/*.md'
       - 'dart/ausca/**'
       - '.github/workflows/verify-dart.yml'
+      - 'dotnet/**'
+      - '.github/workflows/verify-dotnet.yml'
   push:
     branches: [main]
     paths-ignore:
       - '**/*.md'
       - 'dart/ausca/**'
       - '.github/workflows/verify-dart.yml'
+      - 'dotnet/**'
+      - '.github/workflows/verify-dotnet.yml'
 
 permissions:
   contents: read

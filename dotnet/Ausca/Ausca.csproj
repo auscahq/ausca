@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <PackageId>Ausca</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Ausca</Authors>
+    <Description>Rail-neutral .NET buyer client for Ausca's live pay-per-call agent services.</Description>
+    <PackageTags>ausca;x402;agents;mcp;payments</PackageTags>
+    <PackageProjectUrl>https://ausca.com</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/auscahq/ausca</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+</Project>
