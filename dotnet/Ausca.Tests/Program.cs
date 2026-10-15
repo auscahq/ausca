@@ -27,7 +27,6 @@ var paid = new StubTransport(_ =>
 });
 var buyer = new AuscaClient(paid, read);
 var result = await buyer.InvokeAsync("browser.session", new { duration_seconds = 600 }, PurchaseKey,
-    new Dictionary<string, string> { ["source"] = "dotnet-test" },
     identity =>
     {
         Check(identity.OfferId == "browser.session" && identity.IdempotencyKey == PurchaseKey, "persisted identity");
@@ -38,7 +37,11 @@ Check(events.SequenceEqual(new[] { "persist", "payment" }), "persistence before 
 Check(result.Body.GetProperty("status").GetString() == "succeeded", "paid result");
 Check(paid.Requests.Single().Uri.ToString() == "https://ausca.com/v1/offers/browser.session/invoke", "catalog route");
 Check(Parse(paid.Requests.Single().Body!).GetProperty("offer_revision_digest").GetString() == "revision-digest", "revision binding");
-Check(Parse(paid.Requests.Single().Body!).GetProperty("attribution").GetProperty("source").GetString() == "dotnet-test", "attribution");
+Check(Parse(paid.Requests.Single().Body!).EnumerateObject().Select(field => field.Name).SequenceEqual(new[]
+{
+    "offer_id", "offer_revision", "offer_revision_digest", "input_schema_digest", "output_schema_digest", "input",
+    "idempotency_key",
+}), "exact invocation envelope");
 
 var noAuthority = new AuscaClient(read: read);
 await Expect<InvalidOperationException>(() => noAuthority.InvokeAsync("browser.session", new { }));

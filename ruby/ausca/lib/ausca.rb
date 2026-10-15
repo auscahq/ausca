@@ -75,11 +75,10 @@ module Ausca
       offer(offer_id).fetch("price")
     end
 
-    def envelope(bound_offer, input, idempotency_key: nil, attribution: nil)
+    def envelope(bound_offer, input, idempotency_key: nil)
       validate_offer(bound_offer)
       key = idempotency_key || new_key("ausca-")
       validate_key(key)
-      validate_attribution(attribution) unless attribution.nil?
       {
         "offer_id" => bound_offer.fetch("offer_id"),
         "offer_revision" => bound_offer.fetch("revision"),
@@ -88,23 +87,23 @@ module Ausca
         "output_schema_digest" => bound_offer.fetch("output_schema").fetch("digest"),
         "input" => input,
         "idempotency_key" => key
-      }.tap { |body| body["attribution"] = attribution unless attribution.nil? }
+      }
     end
 
     # Read-only challenge inspection; never calls the payment authority.
-    def probe(offer_id, input, idempotency_key: nil, attribution: nil)
+    def probe(offer_id, input, idempotency_key: nil)
       bound = offer(offer_id)
-      body = envelope(bound, input, idempotency_key: idempotency_key, attribution: attribution)
+      body = envelope(bound, input, idempotency_key: idempotency_key)
       [request(@http, :post, bound.fetch("route").fetch("path"), body: JSON.generate(body)), identity(body)]
     end
 
     # The caller may persist the identity in the block before payment begins.
     # On uncertainty, retry with identical input and the same key.
-    def invoke(offer_id, input, idempotency_key: nil, attribution: nil)
+    def invoke(offer_id, input, idempotency_key: nil)
       raise Error, "payment authority is required for invoke" if @payment.nil?
 
       bound = offer(offer_id)
-      body = envelope(bound, input, idempotency_key: idempotency_key, attribution: attribution)
+      body = envelope(bound, input, idempotency_key: idempotency_key)
       purchase = identity(body)
       yield(purchase) if block_given?
       response = begin
@@ -228,17 +227,6 @@ module Ausca
       valid = key.is_a?(String) && key.valid_encoding? && key.bytesize.between?(16, 128) &&
               key.strip == key && !key.match?(/[\x00-\x1f\x7f]/)
       raise Error, "idempotency key must be 16 to 128 clean UTF-8 bytes" unless valid
-    end
-
-    def validate_attribution(value)
-      valid = value.is_a?(Hash) && value.keys.all? { |key| %w[source campaign].include?(key.to_s) } &&
-              label?(value[:source] || value["source"], 64) &&
-              (value[:campaign] || value["campaign"]).then { |campaign| campaign.nil? || label?(campaign, 128) }
-      raise Error, "attribution source and campaign must be bounded lowercase labels" unless valid
-    end
-
-    def label?(value, max)
-      value.is_a?(String) && value.bytesize <= max && value.match?(/\A[a-z0-9][a-z0-9._-]*\z/)
     end
 
     def new_key(prefix)

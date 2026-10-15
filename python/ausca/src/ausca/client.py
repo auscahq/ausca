@@ -8,7 +8,6 @@ authority implementations, never client concerns.
 
 from __future__ import annotations
 
-import re
 import uuid
 from dataclasses import dataclass, replace
 from typing import Any
@@ -27,7 +26,6 @@ from ausca.payment import (
 ORIGIN = "https://ausca.com"
 CATALOG_URL = f"{ORIGIN}/catalog.json"
 SKILL_URL = f"{ORIGIN}/SKILL.md"
-_ATTRIBUTION_LABEL = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 
 
 class AuscaError(Exception):
@@ -38,14 +36,6 @@ class AuscaError(Exception):
 class InvocationIdentity:
     offer_id: str
     idempotency_key: str
-
-
-@dataclass(frozen=True)
-class InvocationAttribution:
-    """Optional acquisition context; it never affects payment or execution."""
-
-    source: str
-    campaign: str | None = None
 
 
 class InvocationUncertainError(AuscaError):
@@ -219,8 +209,6 @@ class AuscaClient:
         offer: Offer,
         invocation_input: dict[str, Any],
         idempotency_key: str | None = None,
-        *,
-        attribution: InvocationAttribution | None = None,
     ) -> dict[str, Any]:
         """The exact invocation envelope for one offer.
 
@@ -236,8 +224,6 @@ class AuscaClient:
             or any(ord(character) < 0x20 or ord(character) == 0x7F for character in idempotency_key)
         ):
             raise AuscaError("idempotency_key must be 16 to 128 clean UTF-8 bytes")
-        if attribution is not None:
-            _validate_attribution(attribution)
         return {
             "offer_id": offer.offer_id,
             "offer_revision": offer.revision,
@@ -246,10 +232,6 @@ class AuscaClient:
             "output_schema_digest": offer.output_schema_digest,
             "input": invocation_input,
             "idempotency_key": idempotency_key,
-            **({"attribution": {
-                "source": attribution.source,
-                **({"campaign": attribution.campaign} if attribution.campaign is not None else {}),
-            }} if attribution is not None else {}),
         }
 
     def invoke(
@@ -258,16 +240,10 @@ class AuscaClient:
         invocation_input: dict[str, Any],
         *,
         idempotency_key: str | None = None,
-        attribution: InvocationAttribution | None = None,
     ) -> InvocationResult:
         """Run one paid invocation: probe, pay within policy, return proof."""
         offer = self.offer(offer_id)
-        body = self.envelope(
-            offer,
-            invocation_input,
-            idempotency_key,
-            attribution=attribution,
-        )
+        body = self.envelope(offer, invocation_input, idempotency_key)
         identity = InvocationIdentity(offer_id, body["idempotency_key"])
         try:
             response = self._payment.request(
@@ -291,18 +267,12 @@ class AuscaClient:
         invocation_input: dict[str, Any],
         *,
         idempotency_key: str | None = None,
-        attribution: InvocationAttribution | None = None,
     ) -> httpx.Response:
         """Inspect the HTTP challenge without invoking the payment authority."""
         offer = self.offer(offer_id)
         return self._http.request(
             offer.route_method, f"{self._origin}{offer.route_path}",
-            json=self.envelope(
-                offer,
-                invocation_input,
-                idempotency_key,
-                attribution=attribution,
-            ),
+            json=self.envelope(offer, invocation_input, idempotency_key),
         )
 
     def pay_request(
@@ -359,20 +329,3 @@ class AuscaClient:
         if not isinstance(body, dict) or body.get("status") != "ready":
             raise AuscaError(f"artifact access answered {response.status_code}")
         return body["artifact"]
-
-
-def _validate_attribution(attribution: InvocationAttribution) -> None:
-    if (
-        len(attribution.source) > 64
-        or _ATTRIBUTION_LABEL.fullmatch(attribution.source) is None
-        or (
-            attribution.campaign is not None
-            and (
-                len(attribution.campaign) > 128
-                or _ATTRIBUTION_LABEL.fullmatch(attribution.campaign) is None
-            )
-        )
-    ):
-        raise AuscaError(
-            "attribution source and campaign must be bounded lowercase labels"
-        )

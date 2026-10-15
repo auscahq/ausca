@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
-import java.util.regex.Pattern;
 
 /** Catalog-bound buyer operations. Only the payment transport may authorize spend. */
 public final class AuscaClient {
@@ -24,7 +23,6 @@ public final class AuscaClient {
     public static final int MAX_ARTIFACT_BYTES = 25 * 1024 * 1024;
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final SecureRandom RANDOM = new SecureRandom();
-    private static final Pattern LABEL = Pattern.compile("^[a-z0-9][a-z0-9._-]*$");
 
     public record Identity(String offerId, String idempotencyKey) { }
     public record Envelope(byte[] body, Identity identity) {
@@ -94,11 +92,10 @@ public final class AuscaClient {
         return offer(offerId).path("price").deepCopy();
     }
 
-    public Envelope envelope(JsonNode offer, Object input, String idempotencyKey, Map<String, String> attribution) {
+    public Envelope envelope(JsonNode offer, Object input, String idempotencyKey) {
         validateOffer(offer);
         var key = idempotencyKey == null ? newKey("ausca-") : idempotencyKey;
         validateKey(key);
-        if (attribution != null) validateAttribution(attribution);
         var body = JSON.createObjectNode();
         body.put("offer_id", offer.path("offer_id").asText());
         body.put("offer_revision", offer.path("revision").asText());
@@ -107,7 +104,6 @@ public final class AuscaClient {
         body.put("output_schema_digest", offer.path("output_schema").path("digest").asText());
         body.set("input", JSON.valueToTree(input));
         body.put("idempotency_key", key);
-        if (attribution != null) body.set("attribution", JSON.valueToTree(attribution));
         try {
             return new Envelope(JSON.writeValueAsBytes(body), new Identity(offer.path("offer_id").asText(), key));
         } catch (IOException error) {
@@ -117,17 +113,16 @@ public final class AuscaClient {
 
     public Probe probe(String offerId, Object input, String idempotencyKey) throws IOException, InterruptedException {
         var offer = offer(offerId);
-        var envelope = envelope(offer, input, idempotencyKey, null);
+        var envelope = envelope(offer, input, idempotencyKey);
         var response = request(read, "POST", offer.path("route").path("path").asText(), envelope.body(), Map.of());
         return new Probe(response, envelope.identity());
     }
 
-    public Result invoke(String offerId, Object input, String idempotencyKey,
-                         Map<String, String> attribution, Consumer<Identity> beforePayment)
+    public Result invoke(String offerId, Object input, String idempotencyKey, Consumer<Identity> beforePayment)
             throws IOException, InterruptedException {
         if (payment == null) throw new IllegalStateException("Payment authority is required for invoke");
         var offer = offer(offerId);
-        var envelope = envelope(offer, input, idempotencyKey, attribution);
+        var envelope = envelope(offer, input, idempotencyKey);
         if (beforePayment != null) beforePayment.accept(envelope.identity());
         Transport.WireResponse response;
         try {
@@ -262,17 +257,6 @@ public final class AuscaClient {
         var size = key.getBytes(StandardCharsets.UTF_8).length;
         if (size < 16 || size > 128 || !key.trim().equals(key) || key.codePoints().anyMatch(Character::isISOControl))
             throw new IllegalArgumentException("Idempotency key must be 16 to 128 clean UTF-8 bytes");
-    }
-
-    private static void validateAttribution(Map<String, String> attribution) {
-        if (!attribution.keySet().stream().allMatch(key -> key.equals("source") || key.equals("campaign")) ||
-            !attribution.containsKey("source") || !validLabel(attribution.get("source"), 64) ||
-            (attribution.containsKey("campaign") && !validLabel(attribution.get("campaign"), 128)))
-            throw new IllegalArgumentException("Invalid attribution source or campaign");
-    }
-
-    private static boolean validLabel(String value, int max) {
-        return value != null && value.length() <= max && LABEL.matcher(value).matches();
     }
 
     private static String newKey(String prefix) {

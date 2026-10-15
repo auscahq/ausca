@@ -54,6 +54,8 @@ class ClientTest < Minitest::Test
     assert_equal saved, result[:identity]
     assert_equal wire[0], wire[1]
     assert_equal "sha256:revision", JSON.parse(wire[0]).fetch("offer_revision_digest")
+    assert_equal %w[offer_id offer_revision offer_revision_digest input_schema_digest output_schema_digest input
+                    idempotency_key], JSON.parse(wire[0]).keys
   end
 
   def test_probe_bypasses_payment

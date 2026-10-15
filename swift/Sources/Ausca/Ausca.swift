@@ -88,16 +88,6 @@ public struct Offer: Decodable, Sendable {
     public let price: Price
 }
 
-public struct Attribution: Encodable, Sendable {
-    public let source: String
-    public let campaign: String?
-
-    public init(source: String, campaign: String? = nil) {
-        self.source = source
-        self.campaign = campaign
-    }
-}
-
 public struct InvocationResult: Sendable {
     public let status: Int
     public let body: Data
@@ -157,22 +147,21 @@ public actor AuscaClient {
     public func price(_ offerId: String) async throws -> Price { try await offer(offerId).price }
 
     public func probe<Input: Encodable & Sendable>(
-        _ offerId: String, input: Input, idempotencyKey: String? = nil, attribution: Attribution? = nil
+        _ offerId: String, input: Input, idempotencyKey: String? = nil
     ) async throws -> (Data, HTTPURLResponse, Identity) {
         let offer = try await offer(offerId)
-        let (body, identity) = try envelope(offer, input: input, idempotencyKey: idempotencyKey, attribution: attribution)
+        let (body, identity) = try envelope(offer, input: input, idempotencyKey: idempotencyKey)
         let (data, response) = try await request(read, method: "POST", path: offer.route.path, body: body)
         return (data, response, identity)
     }
 
     public func invoke<Input: Encodable & Sendable>(
         _ offerId: String, input: Input, idempotencyKey: String? = nil,
-        attribution: Attribution? = nil,
         beforePayment: (@Sendable (Identity) async throws -> Void)? = nil
     ) async throws -> InvocationResult {
         guard let payment else { throw AuscaError.invalid("payment authority is required for invoke") }
         let offer = try await offer(offerId)
-        let (body, identity) = try envelope(offer, input: input, idempotencyKey: idempotencyKey, attribution: attribution)
+        let (body, identity) = try envelope(offer, input: input, idempotencyKey: idempotencyKey)
         try await beforePayment?(identity)
         let data: Data
         let response: HTTPURLResponse
@@ -238,19 +227,13 @@ public actor AuscaClient {
         return result.artifact
     }
 
-    private func envelope<Input: Encodable>(_ offer: Offer, input: Input, idempotencyKey: String?, attribution: Attribution?) throws -> (Data, Identity) {
+    private func envelope<Input: Encodable>(_ offer: Offer, input: Input, idempotencyKey: String?) throws -> (Data, Identity) {
         try validate(offer)
         let key = idempotencyKey ?? "ausca-\(UUID().uuidString.lowercased())"
         try validateKey(key)
-        if let attribution {
-            guard validLabel(attribution.source, max: 64), attribution.campaign.map({ validLabel($0, max: 128) }) ?? true else {
-                throw AuscaError.invalid("attribution source and campaign must be bounded lowercase labels")
-            }
-        }
         let value = InvocationEnvelope(offerId: offer.offerId, offerRevision: offer.revision,
                                        offerRevisionDigest: offer.revisionDigest, inputSchemaDigest: offer.inputSchema.digest,
-                                       outputSchemaDigest: offer.outputSchema.digest, input: input, idempotencyKey: key,
-                                       attribution: attribution)
+                                       outputSchemaDigest: offer.outputSchema.digest, input: input, idempotencyKey: key)
         return (try json(value), Identity(offerId: offer.offerId, idempotencyKey: key))
     }
 
@@ -289,14 +272,6 @@ public actor AuscaClient {
             throw AuscaError.invalid("idempotency key must be 16 to 128 clean UTF-8 bytes")
         }
     }
-
-    private func validLabel(_ value: String, max: Int) -> Bool {
-        let bytes = Array(value.utf8)
-        guard !bytes.isEmpty, bytes.count <= max, asciiAlnum(bytes[0]) else { return false }
-        return bytes.allSatisfy { asciiAlnum($0) || [46, 95, 45].contains($0) }
-    }
-
-    private func asciiAlnum(_ byte: UInt8) -> Bool { (97...122).contains(byte) || (48...57).contains(byte) }
 }
 
 private struct CatalogDocument: Decodable { let offers: [Offer] }
@@ -309,7 +284,6 @@ private struct InvocationEnvelope<Input: Encodable>: Encodable {
     let outputSchemaDigest: String
     let input: Input
     let idempotencyKey: String
-    let attribution: Attribution?
 }
 
 private struct ArtifactUpload: Encodable {

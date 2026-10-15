@@ -60,22 +60,14 @@ final class Client
     }
 
     /** @param array<string,mixed> $offer
-     *  @param ?array{source:string,campaign?:string} $attribution
      *  @return array<string,mixed>
      */
-    public function envelope(array $offer, mixed $input, ?string $idempotencyKey = null, ?array $attribution = null): array
+    public function envelope(array $offer, mixed $input, ?string $idempotencyKey = null): array
     {
         $this->validateOffer($offer);
         $key = $idempotencyKey ?? $this->newKey('ausca-');
         $this->validateKey($key);
-        if ($attribution !== null) {
-            if (array_diff(array_keys($attribution), ['source', 'campaign']) ||
-                !$this->validLabel($attribution['source'] ?? null, 64) ||
-                (isset($attribution['campaign']) && !$this->validLabel($attribution['campaign'], 128))) {
-                throw new InvalidArgumentException('Attribution source and campaign must be bounded lowercase labels');
-            }
-        }
-        $body = [
+        return [
             'offer_id' => $offer['offer_id'],
             'offer_revision' => $offer['revision'],
             'offer_revision_digest' => $offer['revision_digest'],
@@ -84,10 +76,6 @@ final class Client
             'input' => $input,
             'idempotency_key' => $key,
         ];
-        if ($attribution !== null) {
-            $body['attribution'] = $attribution;
-        }
-        return $body;
     }
 
     /** @return array{response:Response,identity:array{offer_id:string,idempotency_key:string}} */
@@ -102,13 +90,13 @@ final class Client
     /** @param ?callable(array{offer_id:string,idempotency_key:string}):void $beforePayment
      *  @return array{status:int,body:mixed,identity:array{offer_id:string,idempotency_key:string}}
      */
-    public function invoke(string $offerId, mixed $input, ?string $idempotencyKey = null, ?array $attribution = null, ?callable $beforePayment = null): array
+    public function invoke(string $offerId, mixed $input, ?string $idempotencyKey = null, ?callable $beforePayment = null): array
     {
         if ($this->payment === null) {
             throw new RuntimeException('Payment authority is required for invoke');
         }
         $offer = $this->offer($offerId);
-        $body = $this->envelope($offer, $input, $idempotencyKey, $attribution);
+        $body = $this->envelope($offer, $input, $idempotencyKey);
         $identity = $this->identity($body);
         $serialized = $this->encode($body);
         if ($beforePayment !== null) {
@@ -252,11 +240,6 @@ final class Client
             preg_match('//u', $key) !== 1 || preg_match('/[\x00-\x1f\x7f]/', $key)) {
             throw new InvalidArgumentException('Idempotency key must be 16 to 128 clean UTF-8 bytes');
         }
-    }
-
-    private function validLabel(mixed $value, int $max): bool
-    {
-        return is_string($value) && strlen($value) <= $max && preg_match('/^[a-z0-9][a-z0-9._-]*$/D', $value) === 1;
     }
 
     private function newKey(string $prefix): string

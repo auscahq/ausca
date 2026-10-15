@@ -9,7 +9,7 @@ or a payment rail.
 var client = new AuscaClient(myPaymentAuthority);
 var offer = client.offer("browser.session"); // free catalog read
 var result = client.invoke("browser.session", Map.of("duration_seconds", 600),
-    savedPurchaseKey, null, identity -> persistIdentity(identity));
+    savedPurchaseKey, identity -> persistIdentity(identity));
 System.out.println(result.body());
 ```
 

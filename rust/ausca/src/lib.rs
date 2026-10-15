@@ -2,7 +2,7 @@
 
 use base64::Engine;
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::error::Error as StdError;
@@ -128,17 +128,9 @@ pub struct Identity {
     pub idempotency_key: String,
 }
 
-#[derive(Clone, Debug, Serialize)]
-pub struct Attribution {
-    pub source: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub campaign: Option<String>,
-}
-
 #[derive(Default)]
 pub struct InvokeOptions {
     pub idempotency_key: Option<String>,
-    pub attribution: Option<Attribution>,
 }
 
 #[derive(Debug)]
@@ -262,23 +254,11 @@ impl Client {
             .clone()
             .unwrap_or_else(|| format!("ausca-{}", uuid::Uuid::new_v4()));
         validate_key(&key)?;
-        if let Some(attribution) = &options.attribution {
-            if !valid_label(&attribution.source, 64)
-                || attribution
-                    .campaign
-                    .as_ref()
-                    .is_some_and(|value| !valid_label(value, 128))
-            {
-                return Err(invalid(
-                    "attribution source and campaign must be bounded lowercase labels",
-                ));
-            }
-        }
         let identity = Identity {
             offer_id: offer.offer_id.clone(),
             idempotency_key: key.clone(),
         };
-        let mut body = json!({
+        let body = json!({
             "offer_id": offer.offer_id,
             "offer_revision": offer.revision,
             "offer_revision_digest": offer.revision_digest,
@@ -287,10 +267,6 @@ impl Client {
             "input": input,
             "idempotency_key": key,
         });
-        if let Some(attribution) = &options.attribution {
-            body["attribution"] =
-                serde_json::to_value(attribution).map_err(|error| invalid(error.to_string()))?;
-        }
         let bytes = serde_json::to_vec(&body).map_err(|error| invalid(error.to_string()))?;
         Ok((bytes, identity))
     }
@@ -570,17 +546,6 @@ fn validate_key(key: &str) -> Result<(), Error> {
     Ok(())
 }
 
-fn valid_label(value: &str, max: usize) -> bool {
-    value.len() <= max
-        && value
-            .as_bytes()
-            .first()
-            .is_some_and(u8::is_ascii_alphanumeric)
-        && value.bytes().all(|byte| {
-            byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"._-".contains(&byte)
-        })
-}
-
 fn json_header() -> Vec<(String, String)> {
     vec![("Content-Type".into(), "application/json".into())]
 }
@@ -625,7 +590,6 @@ mod tests {
         let client = Client::with_origin("https://example.com", read_transport(), Some(payment));
         let options = || InvokeOptions {
             idempotency_key: Some("browser-purchase-0001".into()),
-            ..Default::default()
         };
         let mut retained = None;
         let first = client
@@ -670,7 +634,6 @@ mod tests {
                 json!({}),
                 InvokeOptions {
                     idempotency_key: Some("browser-purchase-0001".into()),
-                    ..Default::default()
                 },
             )
             .unwrap();
@@ -693,7 +656,6 @@ mod tests {
                 json!({}),
                 InvokeOptions {
                     idempotency_key: Some(key.into()),
-                    ..Default::default()
                 },
             )
             .err()
@@ -716,7 +678,6 @@ mod tests {
                 json!({}),
                 InvokeOptions {
                     idempotency_key: Some(key.into()),
-                    ..Default::default()
                 },
             )
             .err()

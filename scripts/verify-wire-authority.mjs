@@ -20,11 +20,11 @@ const required = [
 ].sort();
 const envelope = openapi.components.schemas.InvocationEnvelope;
 assert.deepEqual([...envelope.required].sort(), required);
+// Every client emits exactly these fields: the envelope takes nothing else.
+assert.deepEqual(Object.keys(envelope.properties).sort(), required);
 assert.equal(envelope.additionalProperties, false);
 assert.equal(envelope.properties.idempotency_key.minLength, 16);
 assert.equal(envelope.properties.idempotency_key.maxLength, 128);
-assert.deepEqual([...envelope.properties.attribution.required].sort(), ["source"]);
-assert.equal(envelope.properties.attribution.additionalProperties, false);
 assert.equal(openapi.paths["/v1/artifacts/{artifact_ref}/access"].post.requestBody, undefined);
 
 assert.ok(Array.isArray(catalog.offers) && catalog.offers.length > 0, "empty offer catalog");

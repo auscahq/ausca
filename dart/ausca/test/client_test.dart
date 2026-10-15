@@ -76,7 +76,7 @@ void main() {
     final result = await client.invoke(
         'browser.session', {'duration_seconds': 600},
         idempotencyKey: 'fixed-purchase-key-0001',
-        attribution: {'source': 'dart-test'}, beforePayment: (identity) async {
+        beforePayment: (identity) async {
       expect(identity.offerId, 'browser.session');
       events.add('persist');
     });
@@ -90,7 +90,15 @@ void main() {
     expect(envelope['offer_revision_digest'], 'revision-digest');
     expect(envelope['output_schema_digest'], 'output-digest');
     expect(envelope['idempotency_key'], 'fixed-purchase-key-0001');
-    expect(envelope['attribution'], {'source': 'dart-test'});
+    expect(envelope.keys, [
+      'offer_id',
+      'offer_revision',
+      'offer_revision_digest',
+      'input_schema_digest',
+      'output_schema_digest',
+      'input',
+      'idempotency_key',
+    ]);
   });
 
   test('missing authority and failed persistence cannot start payment',

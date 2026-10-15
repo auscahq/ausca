@@ -109,12 +109,10 @@ final class AuscaClient {
     Map<String, dynamic> binding,
     Object? input, {
     String? idempotencyKey,
-    Map<String, String>? attribution,
   }) {
     _validateOffer(binding);
     final key = idempotencyKey ?? _newKey('ausca-');
     _validateKey(key);
-    if (attribution != null) _validateAttribution(attribution);
     return {
       'offer_id': binding['offer_id'],
       'offer_revision': binding['revision'],
@@ -123,7 +121,6 @@ final class AuscaClient {
       'output_schema_digest': (binding['output_schema'] as Map)['digest'],
       'input': input,
       'idempotency_key': key,
-      if (attribution != null) 'attribution': attribution,
     };
   }
 
@@ -143,15 +140,13 @@ final class AuscaClient {
     String offerId,
     Object? input, {
     String? idempotencyKey,
-    Map<String, String>? attribution,
     Future<void> Function(PurchaseIdentity)? beforePayment,
   }) async {
     final payment = _payment;
     if (payment == null)
       throw StateError('Payment authority is required for invoke');
     final binding = await offer(offerId);
-    final body = envelope(binding, input,
-        idempotencyKey: idempotencyKey, attribution: attribution);
+    final body = envelope(binding, input, idempotencyKey: idempotencyKey);
     final identity =
         PurchaseIdentity(offerId, body['idempotency_key'] as String);
     final bytes = utf8.encode(jsonEncode(body));
@@ -322,19 +317,6 @@ void _validateKey(String key) {
       key.runes.any((value) => value < 32 || value == 127)) {
     throw ArgumentError.value(
         key, 'idempotencyKey', 'Must be 16 to 128 clean UTF-8 bytes');
-  }
-}
-
-void _validateAttribution(Map<String, String> attribution) {
-  final pattern = RegExp(r'^[a-z0-9][a-z0-9._-]*$');
-  if (attribution.keys.any((key) => key != 'source' && key != 'campaign') ||
-      !pattern.hasMatch(attribution['source'] ?? '') ||
-      (attribution['source']?.length ?? 0) > 64 ||
-      (attribution.containsKey('campaign') &&
-          (!pattern.hasMatch(attribution['campaign']!) ||
-              attribution['campaign']!.length > 128))) {
-    throw ArgumentError.value(
-        attribution, 'attribution', 'Invalid source or campaign');
   }
 }
 

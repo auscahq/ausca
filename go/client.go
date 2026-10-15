@@ -92,14 +92,8 @@ type Identity struct {
 	IdempotencyKey string
 }
 
-type Attribution struct {
-	Source   string `json:"source"`
-	Campaign string `json:"campaign,omitempty"`
-}
-
 type InvokeOptions struct {
 	IdempotencyKey string
-	Attribution    *Attribution
 	// BeforePayment must durably retain identity before the paid HTTP request.
 	// Its error aborts the call without contacting the payment authority.
 	BeforePayment func(Identity) error
@@ -205,20 +199,16 @@ func (c *Client) Envelope(offer Offer, input any, options InvokeOptions) ([]byte
 	if err := validateKey(key); err != nil {
 		return nil, Identity{}, err
 	}
-	if options.Attribution != nil && !validAttribution(*options.Attribution) {
-		return nil, Identity{}, errors.New("attribution source and campaign must be bounded lowercase labels")
-	}
 	identity := Identity{OfferID: offer.OfferID, IdempotencyKey: key}
 	body, err := json.Marshal(struct {
-		OfferID             string       `json:"offer_id"`
-		OfferRevision       string       `json:"offer_revision"`
-		OfferRevisionDigest string       `json:"offer_revision_digest"`
-		InputSchemaDigest   string       `json:"input_schema_digest"`
-		OutputSchemaDigest  string       `json:"output_schema_digest"`
-		Input               any          `json:"input"`
-		IdempotencyKey      string       `json:"idempotency_key"`
-		Attribution         *Attribution `json:"attribution,omitempty"`
-	}{offer.OfferID, offer.Revision, offer.RevisionDigest, offer.InputSchema.Digest, offer.OutputSchema.Digest, input, key, options.Attribution})
+		OfferID             string `json:"offer_id"`
+		OfferRevision       string `json:"offer_revision"`
+		OfferRevisionDigest string `json:"offer_revision_digest"`
+		InputSchemaDigest   string `json:"input_schema_digest"`
+		OutputSchemaDigest  string `json:"output_schema_digest"`
+		Input               any    `json:"input"`
+		IdempotencyKey      string `json:"idempotency_key"`
+	}{offer.OfferID, offer.Revision, offer.RevisionDigest, offer.InputSchema.Digest, offer.OutputSchema.Digest, input, key})
 	return body, identity, err
 }
 
@@ -337,27 +327,6 @@ func validateKey(key string) error {
 		}
 	}
 	return nil
-}
-
-func validAttribution(value Attribution) bool {
-	return validLabel(value.Source, 64) && (value.Campaign == "" || validLabel(value.Campaign, 128))
-}
-
-func validLabel(value string, max int) bool {
-	if value == "" || len(value) > max || !asciiAlnum(rune(value[0])) {
-		return false
-	}
-	for _, char := range value {
-		if asciiAlnum(char) || char == '.' || char == '_' || char == '-' {
-			continue
-		}
-		return false
-	}
-	return true
-}
-
-func asciiAlnum(char rune) bool {
-	return char >= 'a' && char <= 'z' || char >= '0' && char <= '9'
 }
 
 func cloneOffers(offers []Offer) []Offer {

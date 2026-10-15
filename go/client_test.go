@@ -78,7 +78,8 @@ func TestInvokePreservesPurchaseAcrossPaymentRetry(t *testing.T) {
 	if err := json.Unmarshal(seen[0], &body); err != nil {
 		t.Fatal(err)
 	}
-	if body["idempotency_key"] != retained.IdempotencyKey || body["offer_revision_digest"] != "sha256:revision" {
+	// The envelope is exactly the service's seven invocation fields.
+	if len(body) != 7 || body["idempotency_key"] != retained.IdempotencyKey || body["offer_revision_digest"] != "sha256:revision" {
 		t.Fatalf("invalid bound envelope: %#v", body)
 	}
 }

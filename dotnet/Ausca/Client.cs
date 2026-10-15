@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace Ausca;
 
@@ -38,7 +37,6 @@ public sealed class AuscaClient
 {
     public const string Origin = "https://ausca.com";
     public const int MaxArtifactBytes = 25 * 1024 * 1024;
-    private static readonly Regex LabelPattern = new("^[a-z0-9][a-z0-9._-]*$", RegexOptions.CultureInvariant);
 
     private readonly ITransport _read;
     private readonly ITransport? _payment;
@@ -79,13 +77,11 @@ public sealed class AuscaClient
     public async Task<JsonElement> PriceAsync(string offerId, CancellationToken cancellationToken = default) =>
         (await OfferAsync(offerId, cancellationToken)).GetProperty("price").Clone();
 
-    public (byte[] Body, PurchaseIdentity Identity) Envelope(JsonElement offer, object? input, string? idempotencyKey = null,
-        IReadOnlyDictionary<string, string>? attribution = null)
+    public (byte[] Body, PurchaseIdentity Identity) Envelope(JsonElement offer, object? input, string? idempotencyKey = null)
     {
         ValidateOffer(offer);
         var key = idempotencyKey ?? NewKey("ausca-");
         ValidateKey(key);
-        if (attribution is not null) ValidateAttribution(attribution);
         var body = new Dictionary<string, object?>
         {
             ["offer_id"] = offer.GetProperty("offer_id").GetString(),
@@ -96,7 +92,6 @@ public sealed class AuscaClient
             ["input"] = input,
             ["idempotency_key"] = key,
         };
-        if (attribution is not null) body["attribution"] = attribution;
         return (JsonSerializer.SerializeToUtf8Bytes(body),
             new PurchaseIdentity(offer.GetProperty("offer_id").GetString()!, key));
     }
@@ -112,12 +107,12 @@ public sealed class AuscaClient
     }
 
     public async Task<InvocationResult> InvokeAsync(string offerId, object? input,
-        string? idempotencyKey = null, IReadOnlyDictionary<string, string>? attribution = null,
-        Func<PurchaseIdentity, Task>? beforePayment = null, CancellationToken cancellationToken = default)
+        string? idempotencyKey = null, Func<PurchaseIdentity, Task>? beforePayment = null,
+        CancellationToken cancellationToken = default)
     {
         if (_payment is null) throw new InvalidOperationException("Payment authority is required for invoke");
         var offer = await OfferAsync(offerId, cancellationToken);
-        var (body, identity) = Envelope(offer, input, idempotencyKey, attribution);
+        var (body, identity) = Envelope(offer, input, idempotencyKey);
         if (beforePayment is not null) await beforePayment(identity);
         WireResponse response;
         try
@@ -291,15 +286,6 @@ public sealed class AuscaClient
         var count = Encoding.UTF8.GetByteCount(key);
         if (count is < 16 or > 128 || key.Trim() != key || key.Any(char.IsControl))
             throw new ArgumentException("Idempotency key must be 16 to 128 clean UTF-8 bytes", nameof(key));
-    }
-
-    private static void ValidateAttribution(IReadOnlyDictionary<string, string> attribution)
-    {
-        if (attribution.Keys.Any(key => key is not ("source" or "campaign")) ||
-            !attribution.TryGetValue("source", out var source) || source.Length > 64 || !LabelPattern.IsMatch(source) ||
-            (attribution.TryGetValue("campaign", out var campaign) &&
-                (campaign.Length > 128 || !LabelPattern.IsMatch(campaign))))
-            throw new ArgumentException("Invalid attribution source or campaign", nameof(attribution));
     }
 
     private static string NewKey(string prefix) =>

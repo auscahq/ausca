@@ -110,6 +110,13 @@ describe("AuscaClient", () => {
       expect((outcome.result as { result: { echo: { message: string } } }).result.echo.message).toBe("hello");
       expect(outcome.payment?.success).toBe(true);
       expect(service.requests).toEqual({ unsigned: 1, signed: 1 });
+      // Both sends carry exactly the service's invocation envelope.
+      for (const request of service.invocationRequests) {
+        expect(Object.keys(request).sort()).toEqual([
+          "idempotency_key", "input", "input_schema_digest", "offer_id",
+          "offer_revision", "offer_revision_digest", "output_schema_digest",
+        ]);
+      }
       const state = await client.invocation("inv_echo_0001");
       expect(state.state).toBe("completed");
     } finally {
@@ -204,37 +211,6 @@ describe("AuscaClient", () => {
       await expect(client.envelope(offer, {}, "purchase-20260903\n0001")).rejects.toThrow(
         "16 to 128 clean UTF-8 bytes",
       );
-    } finally {
-      await service.close();
-    }
-  });
-
-  it("carries validated attribution without changing purchase identity", async () => {
-    const service = await startAuscaService();
-    try {
-      const client = AuscaClient.withLocalKey({
-        account,
-        maxPaymentUsd: 0.05,
-        origin: service.origin,
-      });
-      const outcome = await client.invoke(
-        "echo.test",
-        { message: "attributed" },
-        {
-          idempotencyKey: "attributed-purchase-0001",
-          attribution: { source: "frantic", campaign: "bounty-131" },
-        },
-      );
-      expect(outcome.identity.idempotencyKey).toBe("attributed-purchase-0001");
-      expect(service.invocationRequests).toHaveLength(2);
-      expect(service.invocationRequests.every((request) =>
-        JSON.stringify(request.attribution) ===
-        JSON.stringify({ source: "frantic", campaign: "bounty-131" })
-      )).toBe(true);
-      const offer = await client.offer("echo.test");
-      await expect(
-        client.envelope(offer, {}, undefined, { source: "Frantic" }),
-      ).rejects.toThrow("bounded lowercase labels");
     } finally {
       await service.close();
     }

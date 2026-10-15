@@ -51,6 +51,10 @@ final class AuscaTests: XCTestCase {
         XCTAssertEqual(bodies[0], bodies[1])
         let body = try XCTUnwrap(JSONSerialization.jsonObject(with: bodies[0]) as? [String: Any])
         XCTAssertEqual(body["offer_revision_digest"] as? String, "sha256:revision")
+        XCTAssertEqual(Set(body.keys), [
+            "offer_id", "offer_revision", "offer_revision_digest", "input_schema_digest", "output_schema_digest",
+            "input", "idempotency_key",
+        ])
     }
 
     func testProbeDoesNotPay() async throws {

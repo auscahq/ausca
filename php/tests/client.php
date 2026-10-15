@@ -58,6 +58,9 @@ $client->invoke('browser.session', ['duration_seconds' => 600], $key);
 check($first['identity'] === $identity, 'Purchase identity changed');
 check($payment->requests[0]->body === $payment->requests[1]->body, 'Retry changed envelope bytes');
 check(json_decode($payment->requests[0]->body, true)['offer_revision_digest'] === 'sha256:revision', 'Binding digest missing');
+check(array_keys(json_decode($payment->requests[0]->body, true)) === [
+    'offer_id', 'offer_revision', 'offer_revision_digest', 'input_schema_digest', 'output_schema_digest', 'input', 'idempotency_key',
+], 'Envelope carries a field the service does not take');
 
 $count = count($payment->requests);
 $probe = $client->probe('browser.session', [], $key);

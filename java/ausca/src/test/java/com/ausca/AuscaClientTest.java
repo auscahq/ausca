@@ -41,7 +41,7 @@ final class AuscaClientTest {
         });
         var client = new AuscaClient(AuscaClient.ORIGIN, read, payment);
         var input = Map.of("duration_seconds", 600);
-        var result = client.invoke("browser.session", input, KEY, Map.of("source", "java-test"), identity -> {
+        var result = client.invoke("browser.session", input, KEY, identity -> {
             assertEquals("browser.session", identity.offerId());
             events.add("persist");
         });
@@ -50,19 +50,22 @@ final class AuscaClientTest {
         var sent = payment.requests.getFirst();
         assertEquals("https://ausca.com/v1/offers/browser.session/invoke", sent.uri().toString());
         assertEquals("revision-digest", JSON.readTree(sent.body()).path("offer_revision_digest").asText());
-        assertEquals("java-test", JSON.readTree(sent.body()).path("attribution").path("source").asText());
-        client.invoke("browser.session", input, KEY, Map.of("source", "java-test"), null);
+        var fields = new ArrayList<String>();
+        JSON.readTree(sent.body()).fieldNames().forEachRemaining(fields::add);
+        assertEquals(List.of("offer_id", "offer_revision", "offer_revision_digest", "input_schema_digest",
+                "output_schema_digest", "input", "idempotency_key"), fields);
+        client.invoke("browser.session", input, KEY, null);
         assertArrayEquals(payment.requests.getFirst().body(), payment.requests.getLast().body());
     }
 
     @Test void paymentRefusesWithoutAuthorityOrFailedPersistence() throws Exception {
         var read = new Stub(request -> response(200, CATALOG));
         var bare = new AuscaClient(AuscaClient.ORIGIN, read, null);
-        assertThrows(IllegalStateException.class, () -> bare.invoke("browser.session", Map.of(), KEY, null, null));
+        assertThrows(IllegalStateException.class, () -> bare.invoke("browser.session", Map.of(), KEY, null));
         assertTrue(read.requests.isEmpty());
         var payment = new Stub(request -> response(200, "{}"));
         var client = new AuscaClient(AuscaClient.ORIGIN, read, payment);
-        assertThrows(IllegalStateException.class, () -> client.invoke("browser.session", Map.of(), KEY, null,
+        assertThrows(IllegalStateException.class, () -> client.invoke("browser.session", Map.of(), KEY,
                 identity -> { throw new IllegalStateException("Not persisted"); }));
         assertTrue(payment.requests.isEmpty());
     }
@@ -71,12 +74,12 @@ final class AuscaClientTest {
         var read = new Stub(request -> response(200, CATALOG));
         var broken = new AuscaClient(AuscaClient.ORIGIN, read, new Stub(request -> { throw new IOException("reset"); }));
         var uncertainty = assertThrows(AuscaClient.UncertainException.class,
-                () -> broken.invoke("browser.session", Map.of(), KEY, null, null));
+                () -> broken.invoke("browser.session", Map.of(), KEY, null));
         assertEquals(KEY, uncertainty.identity().idempotencyKey());
         var refused = new AuscaClient(AuscaClient.ORIGIN, read,
                 new Stub(request -> response(409, "{\"error\":\"conflict\"}")));
         var refusal = assertThrows(AuscaClient.RefusalException.class,
-                () -> refused.invoke("browser.session", Map.of(), KEY, null, null));
+                () -> refused.invoke("browser.session", Map.of(), KEY, null));
         assertEquals(409, refusal.status());
         assertEquals("conflict", refusal.body().path("error").asText());
         assertEquals(KEY, refusal.identity().idempotencyKey());
