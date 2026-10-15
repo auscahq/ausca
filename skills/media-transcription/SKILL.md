@@ -87,10 +87,11 @@ is refunded.
 
 ## Prepare and purchase
 
-Invoke the exact `ausca/media-transcription` package through the caller's skill
-runtime. It resolves the active `media.transcription` revision from
-`https://ausca.com/catalog.json`, prepares the immutable input, and routes the
-approved purchase to `POST https://ausca.com/v1/transcribe-media`.
+Invoke `ausca/media-transcription` through the caller's skill runtime with the
+input above. The runtime prices the call from this skill's offer and the
+media's size, asks for approval, pays Ausca, and attaches the media to the
+purchase; the result, evidence, and recovery rules below are the same as at
+`POST https://ausca.com/v1/transcribe-media`.
 
 For a direct HTTP integration:
 
@@ -137,8 +138,8 @@ implementation, or database connection.
 ## Bindings and executable recovery
 
 `Media Transcription` is the display name, `media.transcription` the catalog
-offer, and `ausca/media-transcription#invoke` the skill runner. Read revision,
-revision digest, input/output schema digests, and route with
+offer, and `ausca/media-transcription#transcription` the skill runner. Read
+revision, revision digest, input/output schema digests, and route with
 `ausca price media.transcription --json` or the linked catalog; never retype
 hashes from prose. `artifactInput(commitment)` converts the SDK's camelCase
 commitment into the exact snake_case offer input.
@@ -148,11 +149,5 @@ CLI requires `--idempotency-key`; paid MCP requires `ausca_idempotency_key`.
 Save that key before paying and reuse unchanged input on recovery. A new key
 buys again. Read headers case-insensitively with
 `response.headers.get("payment-response")` and honor `Retry-After` on 202.
-Optional attribution is inert reporting metadata: add
-`"attribution":{"source":"my-agent","campaign":"transcription-workflow"}` to
-the invocation envelope, or use CLI `--source my-agent --campaign
-transcription-workflow`. Labels are lowercase `a-z`, `0-9`, `.`, `_`, `-`;
-source is at most 64 characters and campaign 128. It never changes price,
-payment, execution, or recovery identity, and caller values are self-reported.
 Artifact-access MCP arguments are `artifact_ref` and `idempotency_key`; they
 are not an HTTP JSON body.

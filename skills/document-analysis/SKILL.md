@@ -82,10 +82,11 @@ refunded.
 
 ## Prepare and purchase
 
-Invoke the exact `ausca/document-analysis` package through the caller's skill
-runtime. It resolves the active `document.analysis` revision from
-`https://ausca.com/catalog.json`, prepares the immutable input, and routes the
-approved purchase to `POST https://ausca.com/v1/analyze-document`.
+Invoke `ausca/document-analysis` through the caller's skill runtime with the
+input above. The runtime prices the call from this skill's offer and the
+document's size, asks for approval, pays Ausca, and attaches the document to
+the purchase; the result, evidence, and recovery rules below are the same as at
+`POST https://ausca.com/v1/analyze-document`.
 
 For a direct HTTP integration:
 
@@ -133,7 +134,7 @@ implementation, or database connection.
 ## Bindings and executable recovery
 
 `Document Analysis` is the display name, `document.analysis` the catalog offer,
-and `ausca/document-analysis#invoke` the skill runner. Read revision, revision
+and `ausca/document-analysis#analysis` the skill runner. Read revision, revision
 digest, input/output schema digests, and route with
 `ausca price document.analysis --json` or the linked catalog. Do not retype
 hashes from prose. `artifactInput(commitment)` converts the SDK's camelCase
@@ -144,11 +145,5 @@ Save a unique purchase key before calling: CLI requires `--idempotency-key`,
 paid MCP requires `ausca_idempotency_key`. Recover with unchanged input and
 that key, not a new purchase. HTTP header names are case-insensitive; use
 `response.headers.get("payment-response")`. Honor `Retry-After` on HTTP 202.
-Optional attribution is inert reporting metadata: add
-`"attribution":{"source":"my-agent","campaign":"analysis-workflow"}` to the
-invocation envelope, or use CLI `--source my-agent --campaign analysis-workflow`.
-Labels are lowercase `a-z`, `0-9`, `.`, `_`, `-`; source is at most 64
-characters and campaign 128. It never changes price, payment, execution, or
-recovery identity, and caller values are self-reported.
 Artifact-access MCP arguments contain `artifact_ref` and `idempotency_key`;
 they are **not** a JSON body for the bodyless HTTP route.

@@ -11,69 +11,59 @@ It is browser infrastructure, not a browser agent.
 
 ## What the purchase includes
 
-One paid invocation creates or exactly replays one browser lease. Choose the
-duration before approval; the prices are:
+One purchase creates one browser lease. Choose the duration; the prices are:
 
-- 10 minutes: $0.05 USD
-- 30 minutes: $0.10 USD
-- 60 minutes: $0.20 USD
+- 10 minutes (`duration_seconds: 600`): $0.05 USD
+- 30 minutes (`1800`): $0.10 USD
+- 60 minutes (`3600`): $0.20 USD
 
-Preparation binds the exact duration and amount. The
-result includes a session id, expiry, and an opaque bearer capability. Status,
-CDP connection creation, and close do not charge again.
+Status, CDP connection creation, and close do not charge again.
 
 The service does not provide actions, extraction, crawling, recording,
 persistent profiles, proxies, stealth, CAPTCHA solving, or a target-success
 promise.
 
-## Invoke
+## Buy a session
 
-Invoke the exact `ausca/browser-session` package through the caller's skill
-runtime. The runtime resolves immutable live terms and routes the paid call to
-`https://ausca.com/v1/lease-browser`. The service input is exactly one of:
+The create input names one lease:
 
 ```json
-{ "duration_seconds": 600 }
+{
+  "duration_seconds": 600
+}
 ```
 
-```json
-{ "duration_seconds": 1800 }
-```
+Invoke `ausca/browser-session` with its `create` runner through your skill
+runtime. The runtime prices the call from this skill's offer, asks for
+approval, and pays Ausca. Ausca provisions the session and returns its public
+lease: `session_id`, `state`, `created_at` and `expires_at`. There are no
+other browser options.
 
-```json
-{ "duration_seconds": 3600 }
-```
+Your skill runtime keeps the session's capability for whoever bought it: it
+never appears in a result, a prompt or a receipt. A lost answer is recovered by running the
+same purchase again under its run id; never start a new purchase to recover
+one.
 
-There are no other browser options.
+A purchase whose run fails, or never starts, is refunded; the purchase then
+reports `failure.code` and `failure.message`.
 
-**Browser Session** is the display name, `browser.session` the catalog offer,
-and `ausca/browser-session#invoke` the skill runner—not different services.
-Read current bindings from [catalog.json](https://ausca.com/catalog.json) or
-`ausca price browser.session --json`. The SDK builds the envelope from these
-bindings; never retype hashes from prose.
+## Close the session
 
-After an authorized purchase, read `resource_result.resource_access` from the
-verified paid-invocation readback. It contains the session id, expiry, and the
-opaque capability. The capability is returned only by paid admission or its
-exact authenticated replay; invocation status and receipts do not contain it.
-If admission answers HTTP `202`, poll the returned invocation until terminal,
-then replay the exact same purchase identity and unchanged input to claim
-`resource_access`; do not start a new purchase.
-Keep it in host-controlled secret state. Never place it in a prompt, log,
-receipt, query string, or later model-authored tool argument. Losing it is not
-recoverable through public lookup.
+Run `ausca/browser-session close` with `{ "session_id": ... }` to close a
+session you hold early; the runtime then holds nothing for it. It is free, and close
+is idempotent, including after a terminal state. Otherwise the hard expiry
+cleans the session up.
 
-For direct HTTP, `resource_access` is at the top level of the admission body;
-the SDK exposes that body as `outcome.result`. The `resource_result` prefix
-belongs only to skill runner output. Invocation `output` is a creation
-snapshot, not current lease status; use the lifecycle route for current state.
+## Drive the browser
 
-## Use the lease
-
-Supply `Authorization: Bearer <capability>` from the host boundary. For direct
-HTTP, attach it to the lifecycle request. For MCP, attach it to the Streamable
-HTTP request carrying the tool call; it is never a tool argument or JSON field.
-Keep one MCP request or connection scoped to one lease authority.
+CDP connections are minted with the capability. A buyer with no account
+names a `purchaser_key` with its purchase, and that key owns the session: once
+the purchase is fulfilled, the key claims the capability from the runtime that
+sold it, signed over the purchase receipt's digest. A buyer through ausca.com
+receives it in the paid answer. Keep the capability in host-controlled secret
+state: never in a prompt, log, receipt, query string, or later model-authored
+tool argument. Then supply `Authorization: Bearer <capability>` from the host
+boundary:
 
 1. `GET /v1/browser-sessions/{session_id}` for status and hard expiry.
 2. `POST /v1/browser-sessions/{session_id}/connections` with a stable
@@ -91,8 +81,7 @@ are single-use, and at most 64 unexpired tickets may coexist. Expired records
 are compacted, so reconnects do not consume a lifetime quota. Use a stable
 connection `Idempotency-Key` to recover the same intended ticket; a different
 key means a new ticket issue. Each CDP message is capped at 32 MiB. Status can
-report a terminal lease, but connect requires `ready`. Close is idempotent,
-including after terminal state.
+report a terminal lease, but connect requires `ready`.
 
 `ticket_issued` means a credential was issued, not that Chromium connected.
 Only a successful CDP handshake proves connection. Use
@@ -131,9 +120,3 @@ The [executable purchase and recovery examples](https://github.com/auscahq/ausca
 cover this offer. CLI requires `--idempotency-key`; local paid MCP tools require
 `ausca_idempotency_key`. Save one unique key before purchase and reuse unchanged
 input on recovery. A new key buys a new lease, even for identical input.
-Optional attribution is inert reporting metadata: add
-`"attribution":{"source":"my-agent","campaign":"browser-workflow"}` to the
-invocation envelope, or use CLI `--source my-agent --campaign browser-workflow`.
-Labels are lowercase `a-z`, `0-9`, `.`, `_`, `-`; source is at most 64
-characters and campaign 128. It never changes price, payment, execution, or
-recovery identity, and caller values are self-reported.

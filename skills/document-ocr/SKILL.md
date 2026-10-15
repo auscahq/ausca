@@ -70,10 +70,11 @@ is refunded.
 
 ## Authority and purchase
 
-Invoke the exact `ausca/document-ocr` package through the caller's skill
-runtime. It resolves the active `document.ocr` revision from
-`https://ausca.com/catalog.json`, validates the linked schemas, and routes one
-approved paid call to `POST https://ausca.com/v1/extract-text`.
+Invoke `ausca/document-ocr` through the caller's skill runtime with the input
+above. The runtime prices the call from this skill's offer, asks for approval,
+pays Ausca, and attaches the document to the purchase; the result, evidence,
+and recovery rules below are the same as at
+`POST https://ausca.com/v1/extract-text`.
 
 For a direct HTTP integration:
 
@@ -118,7 +119,7 @@ database connection.
 ## Bindings and executable recovery
 
 `Document OCR` is the display name, `document.ocr` the catalog offer, and
-`ausca/document-ocr#invoke` the skill runner. Read revision, revision digest,
+`ausca/document-ocr#ocr` the skill runner. Read revision, revision digest,
 input/output schema digests, and route with `ausca price document.ocr --json`
 or the linked catalog. The SDK builds the envelope from these live bindings;
 do not retype hashes from prose. `artifactInput(commitment)` converts its
@@ -129,11 +130,5 @@ CLI requires `--idempotency-key`; paid MCP requires `ausca_idempotency_key`.
 Save that key before paying and reuse unchanged input on recovery. A new key
 buys again. Read headers case-insensitively with
 `response.headers.get("payment-response")` and honor `Retry-After` on 202.
-Optional attribution is inert reporting metadata: add
-`"attribution":{"source":"my-agent","campaign":"document-workflow"}` to the
-invocation envelope, or use CLI `--source my-agent --campaign document-workflow`.
-Labels are lowercase `a-z`, `0-9`, `.`, `_`, `-`; source is at most 64
-characters and campaign 128. It never changes price, payment, execution, or
-recovery identity, and caller values are self-reported.
 Artifact-access MCP arguments contain `artifact_ref` and `idempotency_key`;
 they are not an HTTP JSON body.
