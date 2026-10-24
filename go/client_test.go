@@ -159,7 +159,7 @@ func TestArtifactCommitAndBodylessAccess(t *testing.T) {
 				t.Fatalf("wrong artifact upload: %#v", request)
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{"status": "stored", "artifact": map[string]any{
-				"artifact_ref": "art_1", "content_digest": request.ContentDigest, "media_type": request.MediaType,
+				"artifact_uri": "art_1", "content_digest": request.ContentDigest, "media_type": request.MediaType,
 				"size_bytes": len(data), "created_at": "now",
 			}})
 		case "/v1/artifacts/art_1/access":
@@ -168,7 +168,7 @@ func TestArtifactCommitAndBodylessAccess(t *testing.T) {
 				t.Fatalf("access request carried body or lost key: %s %#v", body, r.Header)
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ready", "artifact": map[string]any{
-				"artifact_ref": "art_1", "content_digest": "sha256:test", "media_type": "text/plain",
+				"artifact_uri": "art_1", "content_digest": "sha256:test", "media_type": "text/plain",
 				"size_bytes": len(data), "created_at": "now", "download_url": "https://example.com/download", "expires_at": "later",
 			}})
 		default:
@@ -178,10 +178,10 @@ func TestArtifactCommitAndBodylessAccess(t *testing.T) {
 	defer server.Close()
 	client := NewClientForOrigin(server.URL, http.DefaultClient, nil)
 	commitment, err := client.Commit(context.Background(), []byte(data), "text/plain", "artifact-upload-0001")
-	if err != nil || commitment.ArtifactRef != "art_1" {
+	if err != nil || commitment.ArtifactURI != "art_1" {
 		t.Fatalf("commit: %#v %v", commitment, err)
 	}
-	access, err := client.Access(context.Background(), commitment.ArtifactRef, "artifact-access-0001")
+	access, err := client.Access(context.Background(), commitment.ArtifactURI, "artifact-access-0001")
 	if err != nil || access.DownloadURL == "" {
 		t.Fatalf("access: %#v %v", access, err)
 	}

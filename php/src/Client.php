@@ -130,7 +130,7 @@ final class Client
         return $this->json($response->body);
     }
 
-    /** @return array{artifact_ref:string,content_digest:string,media_type:string} */
+    /** @return array{artifact_uri:string,content_digest:string,media_type:string} */
     public function commit(string $bytes, string $mediaType, ?string $idempotencyKey = null): array
     {
         if (strlen($bytes) < 1 || strlen($bytes) > self::MAX_ARTIFACT_BYTES) {
@@ -161,30 +161,30 @@ final class Client
         }
         $artifact = $result['artifact'] ?? null;
         if (($result['status'] ?? null) !== 'stored' || !is_array($artifact) ||
-            !is_string($artifact['artifact_ref'] ?? null) || strlen($artifact['artifact_ref']) < 1 || strlen($artifact['artifact_ref']) > 512 ||
+            !is_string($artifact['artifact_uri'] ?? null) || strlen($artifact['artifact_uri']) < 1 || strlen($artifact['artifact_uri']) > 512 ||
             ($artifact['content_digest'] ?? null) !== $digest || ($artifact['media_type'] ?? null) !== $mediaType ||
             ($artifact['size_bytes'] ?? null) !== strlen($bytes) || !is_string($artifact['created_at'] ?? null)) {
             throw new RuntimeException("Artifact ingress returned mismatched evidence; reuse key {$key}");
         }
-        return ['artifact_ref' => $artifact['artifact_ref'], 'content_digest' => $digest, 'media_type' => $mediaType];
+        return ['artifact_uri' => $artifact['artifact_uri'], 'content_digest' => $digest, 'media_type' => $mediaType];
     }
 
     /** @return array<string,mixed> */
-    public function access(string $artifactRef, ?string $idempotencyKey = null): array
+    public function access(string $artifactUri, ?string $idempotencyKey = null): array
     {
-        if ($artifactRef === '' || strlen($artifactRef) > 512) {
+        if ($artifactUri === '' || strlen($artifactUri) > 512) {
             throw new InvalidArgumentException('Invalid artifact reference');
         }
         $key = $idempotencyKey ?? $this->newKey('ausca-');
         $this->validateKey($key);
-        $response = $this->request($this->read, 'POST', '/v1/artifacts/' . rawurlencode($artifactRef) . '/access', null, ['Idempotency-Key' => $key]);
+        $response = $this->request($this->read, 'POST', '/v1/artifacts/' . rawurlencode($artifactUri) . '/access', null, ['Idempotency-Key' => $key]);
         if ($response->status !== 200) {
             throw new RuntimeException("Artifact access answered {$response->status}");
         }
         $result = $this->json($response->body);
         $artifact = $result['artifact'] ?? null;
         if (($result['status'] ?? null) !== 'ready' || !is_array($artifact) ||
-            ($artifact['artifact_ref'] ?? null) !== $artifactRef || !is_string($artifact['content_digest'] ?? null) ||
+            ($artifact['artifact_uri'] ?? null) !== $artifactUri || !is_string($artifact['content_digest'] ?? null) ||
             !is_string($artifact['download_url'] ?? null) || !is_string($artifact['expires_at'] ?? null)) {
             throw new RuntimeException('Artifact access returned invalid evidence');
         }

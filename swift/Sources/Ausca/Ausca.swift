@@ -95,13 +95,13 @@ public struct InvocationResult: Sendable {
 }
 
 public struct ArtifactCommitment: Decodable, Sendable {
-    public let artifactRef: String
+    public let artifactUri: String
     public let contentDigest: String
     public let mediaType: String
 }
 
 public struct ArtifactAccess: Decodable, Sendable {
-    public let artifactRef: String
+    public let artifactUri: String
     public let contentDigest: String
     public let mediaType: String
     public let sizeBytes: Int
@@ -205,23 +205,23 @@ public actor AuscaClient {
         do { result = try decoder.decode(ArtifactCommitResult.self, from: data) }
         catch { throw AuscaError.invalid("artifact commit uncertain; reuse key \(key)") }
         let artifact = result.artifact
-        guard result.status == "stored", !artifact.artifactRef.isEmpty, artifact.artifactRef.utf8.count <= 512,
+        guard result.status == "stored", !artifact.artifactUri.isEmpty, artifact.artifactUri.utf8.count <= 512,
               artifact.contentDigest == digest, artifact.mediaType == mediaType, artifact.sizeBytes == bytes.count,
               !artifact.createdAt.isEmpty else { throw AuscaError.invalid("artifact ingress returned mismatched evidence; reuse key \(key)") }
-        return ArtifactCommitment(artifactRef: artifact.artifactRef, contentDigest: digest, mediaType: mediaType)
+        return ArtifactCommitment(artifactUri: artifact.artifactUri, contentDigest: digest, mediaType: mediaType)
     }
 
-    public func access(_ artifactRef: String, idempotencyKey: String? = nil) async throws -> ArtifactAccess {
-        guard !artifactRef.isEmpty, artifactRef.utf8.count <= 512 else { throw AuscaError.invalid("invalid artifact reference") }
+    public func access(_ artifactUri: String, idempotencyKey: String? = nil) async throws -> ArtifactAccess {
+        guard !artifactUri.isEmpty, artifactUri.utf8.count <= 512 else { throw AuscaError.invalid("invalid artifact reference") }
         let key = idempotencyKey ?? "ausca-\(UUID().uuidString.lowercased())"
         try validateKey(key)
-        let encoded = artifactRef.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+        let encoded = artifactUri.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
         let (data, response) = try await request(read, method: "POST", path: "/v1/artifacts/\(encoded)/access", headers: ["Idempotency-Key": key])
         guard response.statusCode == 200 else { throw AuscaError.invalid("artifact access answered \(response.statusCode)") }
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         let result = try decoder.decode(ArtifactAccessResult.self, from: data)
-        guard result.status == "ready", result.artifact.artifactRef == artifactRef,
+        guard result.status == "ready", result.artifact.artifactUri == artifactUri,
               !result.artifact.contentDigest.isEmpty, !result.artifact.downloadUrl.isEmpty,
               !result.artifact.expiresAt.isEmpty else { throw AuscaError.invalid("artifact access returned invalid evidence") }
         return result.artifact
@@ -294,7 +294,7 @@ private struct ArtifactUpload: Encodable {
 }
 
 private struct StoredArtifact: Decodable {
-    let artifactRef: String
+    let artifactUri: String
     let contentDigest: String
     let mediaType: String
     let sizeBytes: Int

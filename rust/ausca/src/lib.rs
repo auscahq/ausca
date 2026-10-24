@@ -418,8 +418,8 @@ impl Client {
             ))
         })?;
         if result["status"] != "stored"
-            || artifact["artifact_ref"].as_str().is_none_or(str::is_empty)
-            || artifact["artifact_ref"]
+            || artifact["artifact_uri"].as_str().is_none_or(str::is_empty)
+            || artifact["artifact_uri"]
                 .as_str()
                 .is_some_and(|value| value.len() > 512)
             || artifact["content_digest"] != digest
@@ -432,7 +432,7 @@ impl Client {
             )));
         }
         Ok(json!({
-            "artifact_ref": artifact["artifact_ref"],
+            "artifact_uri": artifact["artifact_uri"],
             "content_digest": digest,
             "media_type": media_type,
         }))
@@ -440,10 +440,10 @@ impl Client {
 
     pub fn access(
         &self,
-        artifact_ref: &str,
+        artifact_uri: &str,
         idempotency_key: Option<&str>,
     ) -> Result<Value, Error> {
-        if artifact_ref.is_empty() || artifact_ref.len() > 512 {
+        if artifact_uri.is_empty() || artifact_uri.len() > 512 {
             return Err(invalid("invalid artifact reference"));
         }
         let key = idempotency_key
@@ -452,7 +452,7 @@ impl Client {
         validate_key(&key)?;
         let path = format!(
             "/v1/artifacts/{}/access",
-            utf8_percent_encode(artifact_ref, NON_ALPHANUMERIC)
+            utf8_percent_encode(artifact_uri, NON_ALPHANUMERIC)
         );
         let response = self.send(
             self.reader.as_ref(),
@@ -473,7 +473,7 @@ impl Client {
             .get("artifact")
             .ok_or_else(|| invalid("artifact access returned malformed evidence"))?;
         if result["status"] != "ready"
-            || artifact["artifact_ref"] != artifact_ref
+            || artifact["artifact_uri"] != artifact_uri
             || artifact["content_digest"].as_str().is_none()
             || artifact["download_url"].as_str().is_none()
             || artifact["expires_at"].as_str().is_none()
@@ -723,7 +723,7 @@ mod tests {
                         status: 200,
                         body: serde_json::to_vec(&json!({
                             "status":"stored", "artifact":{
-                                "artifact_ref":"art_1", "content_digest":body["content_digest"],
+                                "artifact_uri":"art_1", "content_digest":body["content_digest"],
                                 "media_type":"text/plain", "size_bytes":10, "created_at":"now"
                             }
                         }))
@@ -735,7 +735,7 @@ mod tests {
                     assert!(request
                         .headers
                         .contains(&("Idempotency-Key".into(), "artifact-access-0001".into())));
-                    return Ok(Response { status: 200, body: br#"{"status":"ready","artifact":{"artifact_ref":"art_1","content_digest":"sha256:test","media_type":"text/plain","size_bytes":10,"created_at":"now","download_url":"https://example.com/download","expires_at":"later"}}"#.to_vec() });
+                    return Ok(Response { status: 200, body: br#"{"status":"ready","artifact":{"artifact_uri":"art_1","content_digest":"sha256:test","media_type":"text/plain","size_bytes":10,"created_at":"now","download_url":"https://example.com/download","expires_at":"later"}}"#.to_vec() });
                 }
                 Err(format!("unexpected route {}", request.url).into())
             },
@@ -744,7 +744,7 @@ mod tests {
         let commitment = client
             .commit(b"test bytes", "text/plain", Some("artifact-upload-0001"))
             .unwrap();
-        assert_eq!(commitment["artifact_ref"], "art_1");
+        assert_eq!(commitment["artifact_uri"], "art_1");
         let access = client
             .access("art_1", Some("artifact-access-0001"))
             .unwrap();

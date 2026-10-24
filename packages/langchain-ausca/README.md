@@ -32,7 +32,7 @@ const extractText = payableTool({
   description:
     "Extracts normalized text from a scanned document for $0.25. Input is the immutable artifact commitment of the uploaded document.",
   schema: z.object({
-    artifact_ref: z.string(),
+    artifact_uri: z.string(),
     content_digest: z.string(),
     media_type: z.string(),
   }),

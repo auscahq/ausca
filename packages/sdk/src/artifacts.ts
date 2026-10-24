@@ -6,19 +6,19 @@ import { base64Encode, sha256Hex } from "./digest.js";
 
 /** The immutable input commitment an artifact-backed offer requires. */
 export interface ArtifactCommitment {
-  readonly artifactRef: string;
+  readonly artifactUri: string;
   readonly contentDigest: string;
   readonly mediaType: string;
 }
 
 /** Project the SDK value into the canonical HTTP/MCP offer input, explicitly. */
 export function artifactInput(commitment: ArtifactCommitment): {
-  readonly artifact_ref: string;
+  readonly artifact_uri: string;
   readonly content_digest: string;
   readonly media_type: string;
 } {
   return {
-    artifact_ref: commitment.artifactRef,
+    artifact_uri: commitment.artifactUri,
     content_digest: commitment.contentDigest,
     media_type: commitment.mediaType,
   };
@@ -96,7 +96,7 @@ export function auscaArtifactStore(options: AuscaArtifactStoreOptions = {}): Art
       }
       if (!isExactObject(decoded, ["artifact", "status"]) || decoded.status !== "stored" ||
           !isExactObject(decoded.artifact, [
-            "artifact_ref", "content_digest", "created_at", "media_type", "size_bytes",
+            "artifact_uri", "content_digest", "created_at", "media_type", "size_bytes",
           ])) {
         throw new ArtifactError("artifact ingress returned malformed evidence");
       }
@@ -104,14 +104,14 @@ export function auscaArtifactStore(options: AuscaArtifactStoreOptions = {}): Art
       // one field the caller cannot derive. Everything the local bytes prove
       // is checked against them; the minted reference is an opaque token.
       const evidence = decoded.artifact;
-      if (typeof evidence.artifact_ref !== "string" ||
-          !evidence.artifact_ref || evidence.artifact_ref.length > 512 ||
+      if (typeof evidence.artifact_uri !== "string" ||
+          !evidence.artifact_uri || evidence.artifact_uri.length > 512 ||
           evidence.content_digest !== contentDigest ||
           evidence.media_type !== mediaType || evidence.size_bytes !== bytes.length ||
           typeof evidence.created_at !== "string") {
         throw new ArtifactError("artifact ingress returned mismatched evidence");
       }
-      return { artifactRef: evidence.artifact_ref, contentDigest, mediaType };
+      return { artifactUri: evidence.artifact_uri, contentDigest, mediaType };
     },
   };
 }

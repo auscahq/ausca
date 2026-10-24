@@ -128,10 +128,10 @@ describe("AuscaClient", () => {
     const service = await startAuscaService();
     try {
       const client = new AuscaClient({ payment: inertAuthority(), origin: service.origin });
-      const artifactRef = `runx:artifact:sha256:${"a".repeat(64)}`;
-      const access = await client.artifactAccess(artifactRef, "ausca-access-recovery-key-1");
+      const artifactUri = `runx:artifact:sha256:${"a".repeat(64)}`;
+      const access = await client.artifactAccess(artifactUri, "ausca-access-recovery-key-1");
       expect(access).toEqual({
-        artifactRef,
+        artifactUri,
         contentDigest: `sha256:${"c".repeat(64)}`,
         mediaType: "application/json",
         sizeBytes: 70_000,
@@ -230,7 +230,7 @@ describe("Ausca artifact ingress", () => {
         response.end(JSON.stringify({
           status: "stored",
           artifact: {
-            artifact_ref: `runx:artifact:sha256:${createHash("sha256")
+            artifact_uri: `runx:artifact:sha256:${createHash("sha256")
               .update(`storage\n${body.content_digest}`)
               .digest("hex")}`,
             content_digest: body.content_digest,
@@ -256,7 +256,7 @@ describe("Ausca artifact ingress", () => {
       const mintedDigest = createHash("sha256")
         .update(`storage\nsha256:${digest}`)
         .digest("hex");
-      expect(commitment.artifactRef).toBe(`runx:artifact:sha256:${mintedDigest}`);
+      expect(commitment.artifactUri).toBe(`runx:artifact:sha256:${mintedDigest}`);
       expect(commitment.contentDigest).toBe(`sha256:${digest}`);
       expect(operations).toHaveLength(3);
       const [commit, second, recovered] = operations as Record<string, never>[];

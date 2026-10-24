@@ -215,7 +215,7 @@ class _ArtifactService(BaseHTTPRequestHandler):
             {
                 "status": "stored",
                 "artifact": {
-                    "artifact_ref": "runx:artifact:sha256:"
+                    "artifact_uri": "runx:artifact:sha256:"
                     + hashlib.sha256(
                         ("storage\n" + body["content_digest"]).encode()
                     ).hexdigest(),
@@ -250,7 +250,7 @@ def test_ausca_artifact_store_commits_keylessly() -> None:
         minted = hashlib.sha256(
             b"storage\nsha256:" + hashlib.sha256(b"pdf").hexdigest().encode()
         ).hexdigest()
-        assert commitment.artifact_ref == "runx:artifact:sha256:" + minted
+        assert commitment.artifact_uri == "runx:artifact:sha256:" + minted
         assert commitment.content_digest == "sha256:" + hashlib.sha256(b"pdf").hexdigest()
         commit, second, recovered = _ArtifactService.operations
         assert commit["path"] == "/v1/artifacts"

@@ -5,7 +5,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 // them. The live site stays the single authority: `--verify` fails when the
 // mirror drifts, and the sync rewrites it from the origin.
 
-const ORIGIN = "https://ausca.com";
+const ORIGIN = process.env.AUSCA_CONTRACT_ORIGIN ?? "https://ausca.com";
 const SKILLS = [
   "document-ocr",
   "document-analysis",

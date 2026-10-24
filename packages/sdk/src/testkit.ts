@@ -124,7 +124,7 @@ export async function startAuscaService(options?: AuscaServiceOptions): Promise<
         return json(200, {
           status: "ready",
           artifact: {
-            artifact_ref: decodeURIComponent(path.split("/")[3] ?? ""),
+            artifact_uri: decodeURIComponent(path.split("/")[3] ?? ""),
             content_digest: `sha256:${"c".repeat(64)}`,
             media_type: "application/json",
             size_bytes: 70_000,
@@ -151,7 +151,7 @@ export async function startAuscaService(options?: AuscaServiceOptions): Promise<
         return json(200, {
           status: "stored",
           artifact: {
-            artifact_ref: mintedRef,
+            artifact_uri: mintedRef,
             content_digest: body.content_digest,
             media_type: body.media_type,
             size_bytes: data.length,

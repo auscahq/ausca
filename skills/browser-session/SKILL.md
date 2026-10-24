@@ -57,7 +57,7 @@ cleans the session up.
 ## Drive the browser
 
 CDP connections are minted with the capability. A buyer with no account
-names a `purchaser_key` with its purchase, and that key owns the session: once
+names a `buyer_key` with its purchase, and that key owns the session: once
 the purchase is fulfilled, the key claims the capability from the runtime that
 sold it, signed over the purchase receipt's digest. A buyer through ausca.com
 receives it in the paid answer. Keep the capability in host-controlled secret

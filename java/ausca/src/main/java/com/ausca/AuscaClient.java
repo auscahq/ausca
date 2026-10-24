@@ -181,30 +181,30 @@ public final class AuscaClient {
         }
         var artifact = result.path("artifact");
         if (!result.path("status").asText().equals("stored") ||
-            artifact.path("artifact_ref").asText().isEmpty() || artifact.path("artifact_ref").asText().length() > 512 ||
+            artifact.path("artifact_uri").asText().isEmpty() || artifact.path("artifact_uri").asText().length() > 512 ||
             !artifact.path("content_digest").asText().equals(digest) ||
             !artifact.path("media_type").asText().equals(mediaType) ||
             artifact.path("size_bytes").asInt(-1) != bytes.length || artifact.path("created_at").asText().isEmpty())
             throw new IOException("Artifact ingress returned mismatched evidence; reuse key " + key);
         var commitment = JSON.createObjectNode();
-        commitment.put("artifact_ref", artifact.path("artifact_ref").asText());
+        commitment.put("artifact_uri", artifact.path("artifact_uri").asText());
         commitment.put("content_digest", digest);
         commitment.put("media_type", mediaType);
         return commitment;
     }
 
-    public JsonNode access(String artifactRef, String idempotencyKey) throws IOException, InterruptedException {
-        if (artifactRef == null || artifactRef.isEmpty() || artifactRef.length() > 512)
+    public JsonNode access(String artifactUri, String idempotencyKey) throws IOException, InterruptedException {
+        if (artifactUri == null || artifactUri.isEmpty() || artifactUri.length() > 512)
             throw new IllegalArgumentException("Invalid artifact reference");
         var key = idempotencyKey == null ? newKey("ausca-") : idempotencyKey;
         validateKey(key);
-        var response = request(read, "POST", "/v1/artifacts/" + encodePath(artifactRef) + "/access", null,
+        var response = request(read, "POST", "/v1/artifacts/" + encodePath(artifactUri) + "/access", null,
                 Map.of("Idempotency-Key", key));
         if (response.status() != 200) throw new IOException("Artifact access answered " + response.status());
         var result = parseObject(response.body());
         var artifact = result.path("artifact");
         if (!result.path("status").asText().equals("ready") ||
-            !artifact.path("artifact_ref").asText().equals(artifactRef) ||
+            !artifact.path("artifact_uri").asText().equals(artifactUri) ||
             artifact.path("content_digest").asText().isEmpty() ||
             artifact.path("download_url").asText().isEmpty() || artifact.path("expires_at").asText().isEmpty())
             throw new IOException("Artifact access returned invalid evidence");

@@ -113,7 +113,7 @@ class _Resource(BaseHTTPRequestHandler):
                 {
                     "status": "ready",
                     "artifact": {
-                        "artifact_ref": self.path.split("/")[3],
+                        "artifact_uri": self.path.split("/")[3],
                         "content_digest": "sha256:" + "c" * 64,
                         "media_type": "application/json",
                         "size_bytes": 70000,
@@ -156,9 +156,9 @@ def test_invoke_pays_within_cap_and_returns_settlement_proof(resource: str) -> N
 
 def test_artifact_access_mints_a_download_url_without_paying(resource: str) -> None:
     client = AuscaClient.with_local_key(private_key=PRIVATE_KEY, max_payment_usd=0.25, origin=resource)
-    artifact_ref = "runx:artifact:sha256:" + "a" * 64
-    access = client.artifact_access(artifact_ref, "ausca-access-recovery-key-1")
-    assert access["artifact_ref"] == artifact_ref
+    artifact_uri = "runx:artifact:sha256:" + "a" * 64
+    access = client.artifact_access(artifact_uri, "ausca-access-recovery-key-1")
+    assert access["artifact_uri"] == artifact_uri
     assert access["download_url"] == "https://artifacts.example/o/1?sig=2"
     assert access["expires_at"] == "2026-09-06T00:01:00Z"
     assert _Resource.seen == {}

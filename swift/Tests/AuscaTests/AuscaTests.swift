@@ -83,7 +83,7 @@ final class AuscaTests: XCTestCase {
                 XCTAssertEqual(body["data_base64"] as? String, "dGVzdCBieXRlcw==")
                 XCTAssertEqual(body["idempotency_key"] as? String, "artifact-upload-0001")
                 let response: [String: Any] = ["status": "stored", "artifact": [
-                    "artifact_ref": "art_1", "content_digest": body["content_digest"]!,
+                    "artifact_uri": "art_1", "content_digest": body["content_digest"]!,
                     "media_type": "text/plain", "size_bytes": 10, "created_at": "now"
                 ]]
                 let data = try JSONSerialization.data(withJSONObject: response)
@@ -92,13 +92,13 @@ final class AuscaTests: XCTestCase {
             if request.url!.path == "/v1/artifacts/art_1/access" {
                 XCTAssertNil(request.httpBody)
                 XCTAssertEqual(request.value(forHTTPHeaderField: "Idempotency-Key"), "artifact-access-0001")
-                return answer(request, status: 200, body: "{\"status\":\"ready\",\"artifact\":{\"artifact_ref\":\"art_1\",\"content_digest\":\"sha256:test\",\"media_type\":\"text/plain\",\"size_bytes\":10,\"created_at\":\"now\",\"download_url\":\"https://example.com/download\",\"expires_at\":\"later\"}}")
+                return answer(request, status: 200, body: "{\"status\":\"ready\",\"artifact\":{\"artifact_uri\":\"art_1\",\"content_digest\":\"sha256:test\",\"media_type\":\"text/plain\",\"size_bytes\":10,\"created_at\":\"now\",\"download_url\":\"https://example.com/download\",\"expires_at\":\"later\"}}")
             }
             return answer(request, status: 404, body: "{}")
         }
         let client = AuscaClient(origin: "https://example.com", read: read)
         let commitment = try await client.commit(Data("test bytes".utf8), mediaType: "text/plain", idempotencyKey: "artifact-upload-0001")
-        XCTAssertEqual(commitment.artifactRef, "art_1")
+        XCTAssertEqual(commitment.artifactUri, "art_1")
         let access = try await client.access("art_1", idempotencyKey: "artifact-access-0001")
         XCTAssertEqual(access.downloadUrl, "https://example.com/download")
     }

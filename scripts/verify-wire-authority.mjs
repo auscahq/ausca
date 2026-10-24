@@ -25,7 +25,17 @@ assert.deepEqual(Object.keys(envelope.properties).sort(), required);
 assert.equal(envelope.additionalProperties, false);
 assert.equal(envelope.properties.idempotency_key.minLength, 16);
 assert.equal(envelope.properties.idempotency_key.maxLength, 128);
-assert.equal(openapi.paths["/v1/artifacts/{artifact_ref}/access"].post.requestBody, undefined);
+assert.equal(openapi.paths["/v1/artifacts/{artifact_uri}/access"].post.requestBody, undefined);
+for (const [name, fields] of Object.entries({
+  ArtifactEvidence: ["artifact_uri", "content_digest", "created_at", "media_type", "size_bytes"],
+  ArtifactAccess: ["artifact_uri", "content_digest", "created_at", "download_url", "expires_at", "media_type", "size_bytes"],
+  CreateArtifactAccessInput: ["artifact_uri", "idempotency_key"],
+})) {
+  const schema = openapi.components.schemas[name];
+  assert.deepEqual([...schema.required].sort(), [...fields].sort(), `${name} required fields changed`);
+  assert.deepEqual(Object.keys(schema.properties).sort(), [...fields].sort(), `${name} wire fields changed`);
+  assert.equal(schema.additionalProperties, false, `${name} must remain closed`);
+}
 
 assert.ok(Array.isArray(catalog.offers) && catalog.offers.length > 0, "empty offer catalog");
 for (const offer of catalog.offers) {
@@ -39,4 +49,4 @@ for (const offer of catalog.offers) {
     assert.ok(offer[field], `${offer.offer_id} has no ${field} binding`);
   }
 }
-process.stdout.write(`wire authority verified for ${catalog.offers.length} live offers\n`);
+process.stdout.write(`wire authority verified for ${catalog.offers.length} offers at ${origin}\n`);

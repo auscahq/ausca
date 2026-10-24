@@ -150,31 +150,31 @@ module Ausca
 
       result = decode_json(response.body)
       artifact = result.fetch("artifact")
-      unless result.fetch("status") == "stored" && artifact.fetch("artifact_ref").is_a?(String) &&
-             artifact.fetch("artifact_ref").bytesize.between?(1, 512) &&
+      unless result.fetch("status") == "stored" && artifact.fetch("artifact_uri").is_a?(String) &&
+             artifact.fetch("artifact_uri").bytesize.between?(1, 512) &&
              artifact.fetch("content_digest") == digest && artifact.fetch("media_type") == media_type &&
              artifact.fetch("size_bytes") == bytes.bytesize && artifact.fetch("created_at").is_a?(String)
         raise Error, "artifact ingress returned mismatched evidence; reuse key #{key}"
       end
-      artifact.slice("artifact_ref", "content_digest", "media_type")
+      artifact.slice("artifact_uri", "content_digest", "media_type")
     rescue KeyError, JSON::ParserError
       raise Error, "artifact ingress returned malformed evidence; reuse key #{key}"
     end
 
     # The HTTP access route requires a header and no request body.
-    def access(artifact_ref, idempotency_key: nil)
-      raise Error, "invalid artifact reference" unless artifact_ref.is_a?(String) && artifact_ref.bytesize.between?(1, 512)
+    def access(artifact_uri, idempotency_key: nil)
+      raise Error, "invalid artifact reference" unless artifact_uri.is_a?(String) && artifact_uri.bytesize.between?(1, 512)
 
       key = idempotency_key || new_key("ausca-")
       validate_key(key)
       response = request(@http, :post,
-                         "/v1/artifacts/#{URI.encode_www_form_component(artifact_ref)}/access",
+                         "/v1/artifacts/#{URI.encode_www_form_component(artifact_uri)}/access",
                          headers: { "Idempotency-Key" => key })
       raise Error, "artifact access answered #{response.code}" unless response.code.to_i == 200
 
       result = decode_json(response.body)
       artifact = result.fetch("artifact")
-      unless result.fetch("status") == "ready" && artifact.fetch("artifact_ref") == artifact_ref &&
+      unless result.fetch("status") == "ready" && artifact.fetch("artifact_uri") == artifact_uri &&
              artifact.fetch("content_digest").is_a?(String) && artifact.fetch("download_url").is_a?(String) &&
              artifact.fetch("expires_at").is_a?(String)
         raise Error, "artifact access returned invalid evidence"

@@ -44,7 +44,7 @@ artifacts are retained for 24 hours and cannot be revived after expiry.
 
 ## Invocation input and limits
 
-Supply one immutable artifact commitment with `artifact_ref`, matching
+Supply one immutable artifact commitment with `artifact_uri`, matching
 `content_digest`, and a supported media type. Set `media_format` so it agrees
 with that type:
 
@@ -66,7 +66,7 @@ bytes do not belong in the invocation JSON.
 ```json
 {
   "artifact": {
-    "artifact_ref": "runx:artifact:sha256:8888888888888888888888888888888888888888888888888888888888888888",
+    "artifact_uri": "runx:artifact:sha256:8888888888888888888888888888888888888888888888888888888888888888",
     "content_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
     "media_type": "audio/mpeg"
   },
@@ -78,7 +78,7 @@ bytes do not belong in the invocation JSON.
 The normalized text is bounded to 8,000,000 characters. Results up to 64 KiB
 arrive inline as `output`; a larger result arrives as `output_artifact`, an
 immutable artifact reference with its content digest and size. Mint a
-60-second download URL for it with `POST /v1/artifacts/{artifact_ref}/access`
+60-second download URL for it with `POST /v1/artifacts/{artifact_uri}/access`
 (`Idempotency-Key` required, **no body**, not even `{}`) and verify the downloaded bytes against
 `content_digest`. Result artifacts are retained for 24 hours, so retrieve
 needed output before that deadline. Durable execution is bounded to two hours.
@@ -149,5 +149,5 @@ CLI requires `--idempotency-key`; paid MCP requires `ausca_idempotency_key`.
 Save that key before paying and reuse unchanged input on recovery. A new key
 buys again. Read headers case-insensitively with
 `response.headers.get("payment-response")` and honor `Retry-After` on 202.
-Artifact-access MCP arguments are `artifact_ref` and `idempotency_key`; they
+Artifact-access MCP arguments are `artifact_uri` and `idempotency_key`; they
 are not an HTTP JSON body.

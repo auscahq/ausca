@@ -185,17 +185,17 @@ public sealed class AuscaClient
         try
         {
             var artifact = result.GetProperty("artifact");
-            var artifactRef = artifact.GetProperty("artifact_ref").GetString();
+            var artifactUri = artifact.GetProperty("artifact_uri").GetString();
             if (result.GetProperty("status").GetString() != "stored" ||
                 artifact.GetProperty("content_digest").GetString() != digest ||
                 artifact.GetProperty("media_type").GetString() != mediaType ||
                 artifact.GetProperty("size_bytes").GetInt32() != bytes.Length ||
-                string.IsNullOrEmpty(artifactRef) || artifactRef.Length > 512 ||
+                string.IsNullOrEmpty(artifactUri) || artifactUri.Length > 512 ||
                 string.IsNullOrEmpty(artifact.GetProperty("created_at").GetString()))
                 throw new FormatException("Mismatched artifact evidence");
             return new Dictionary<string, string>
             {
-                ["artifact_ref"] = artifactRef,
+                ["artifact_uri"] = artifactUri,
                 ["content_digest"] = digest,
                 ["media_type"] = mediaType,
             };
@@ -206,21 +206,21 @@ public sealed class AuscaClient
         }
     }
 
-    public async Task<JsonElement> AccessAsync(string artifactRef, string? idempotencyKey = null,
+    public async Task<JsonElement> AccessAsync(string artifactUri, string? idempotencyKey = null,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(artifactRef) || artifactRef.Length > 512)
-            throw new ArgumentException("Invalid artifact reference", nameof(artifactRef));
+        if (string.IsNullOrEmpty(artifactUri) || artifactUri.Length > 512)
+            throw new ArgumentException("Invalid artifact reference", nameof(artifactUri));
         var key = idempotencyKey ?? NewKey("ausca-");
         ValidateKey(key);
         var response = await RequestAsync(_read, "POST",
-            "/v1/artifacts/" + Uri.EscapeDataString(artifactRef) + "/access", headers: new Dictionary<string, string>
+            "/v1/artifacts/" + Uri.EscapeDataString(artifactUri) + "/access", headers: new Dictionary<string, string>
             { ["Idempotency-Key"] = key }, cancellationToken: cancellationToken);
         if (response.Status != 200) throw new InvalidOperationException($"Artifact access answered {response.Status}");
         var result = ParseObject(response.Body);
         var artifact = result.GetProperty("artifact");
         if (result.GetProperty("status").GetString() != "ready" ||
-            artifact.GetProperty("artifact_ref").GetString() != artifactRef ||
+            artifact.GetProperty("artifact_uri").GetString() != artifactUri ||
             string.IsNullOrEmpty(artifact.GetProperty("content_digest").GetString()) ||
             string.IsNullOrEmpty(artifact.GetProperty("download_url").GetString()) ||
             string.IsNullOrEmpty(artifact.GetProperty("expires_at").GetString()))

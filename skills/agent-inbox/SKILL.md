@@ -117,7 +117,7 @@ idempotency key only when another access is intended.
 
 ## Holding the capability yourself
 
-A buyer with no account names a `purchaser_key` with its purchase, and that
+A buyer with no account names a `buyer_key` with its purchase, and that
 key owns the inbox: once the purchase is fulfilled, the key claims the
 capability from the runtime that sold it, signed over the purchase receipt's
 digest. A buyer through ausca.com receives it in the paid answer. Either way,

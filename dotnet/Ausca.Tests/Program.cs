@@ -59,14 +59,14 @@ Check(refusal.Status == 409 && refusal.Body.GetProperty("error").GetString() == 
 
 var artifactRead = new StubTransport(request => Task.FromResult(request.Uri.AbsolutePath == "/v1/artifacts"
     ? Response(200, """
-        {"status":"stored","artifact":{"artifact_ref":"artifact-1","content_digest":"sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824","media_type":"text/plain","size_bytes":5,"created_at":"2026-10-08T00:00:00Z"}}
+        {"status":"stored","artifact":{"artifact_uri":"artifact-1","content_digest":"sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824","media_type":"text/plain","size_bytes":5,"created_at":"2026-10-08T00:00:00Z"}}
         """)
     : Response(200, """
-        {"status":"ready","artifact":{"artifact_ref":"artifact-1","content_digest":"sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824","download_url":"https://example.com/download","expires_at":"2026-10-08T01:00:00Z"}}
+        {"status":"ready","artifact":{"artifact_uri":"artifact-1","content_digest":"sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824","download_url":"https://example.com/download","expires_at":"2026-10-08T01:00:00Z"}}
         """)));
 var artifacts = new AuscaClient(read: artifactRead);
 var commitment = await artifacts.CommitAsync(Encoding.UTF8.GetBytes("hello"), "text/plain", "artifact-purchase-key-0001");
-Check(commitment["artifact_ref"] == "artifact-1", "artifact commitment");
+Check(commitment["artifact_uri"] == "artifact-1", "artifact commitment");
 var access = await artifacts.AccessAsync("artifact-1", "access-purchase-key-0001");
 Check(access.GetProperty("download_url").GetString() == "https://example.com/download", "download access");
 Check(artifactRead.Requests[^1].Body is null, "access must be bodyless");

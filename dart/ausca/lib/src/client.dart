@@ -218,8 +218,8 @@ final class AuscaClient {
     final artifact = result['artifact'];
     if (result['status'] != 'stored' ||
         artifact is! Map ||
-        artifact['artifact_ref'] is! String ||
-        (artifact['artifact_ref'] as String).isEmpty ||
+        artifact['artifact_uri'] is! String ||
+        (artifact['artifact_uri'] as String).isEmpty ||
         artifact['content_digest'] != digest ||
         artifact['media_type'] != mediaType ||
         artifact['size_bytes'] != bytes.length ||
@@ -228,21 +228,21 @@ final class AuscaClient {
           'Artifact ingress returned mismatched evidence; reuse key $key');
     }
     return {
-      'artifact_ref': artifact['artifact_ref'] as String,
+      'artifact_uri': artifact['artifact_uri'] as String,
       'content_digest': digest,
       'media_type': mediaType,
     };
   }
 
-  Future<Map<String, dynamic>> access(String artifactRef,
+  Future<Map<String, dynamic>> access(String artifactUri,
       {String? idempotencyKey}) async {
-    if (artifactRef.isEmpty || artifactRef.length > 512) {
-      throw ArgumentError.value(artifactRef, 'artifactRef');
+    if (artifactUri.isEmpty || artifactUri.length > 512) {
+      throw ArgumentError.value(artifactUri, 'artifactUri');
     }
     final key = idempotencyKey ?? _newKey('ausca-');
     _validateKey(key);
     final response = await _request(_read, 'POST',
-        '/v1/artifacts/${Uri.encodeComponent(artifactRef)}/access',
+        '/v1/artifacts/${Uri.encodeComponent(artifactUri)}/access',
         headers: {'Idempotency-Key': key});
     if (response.status != 200)
       throw StateError('Artifact access answered ${response.status}');
@@ -250,7 +250,7 @@ final class AuscaClient {
     final artifact = result['artifact'];
     if (result['status'] != 'ready' ||
         artifact is! Map<String, dynamic> ||
-        artifact['artifact_ref'] != artifactRef ||
+        artifact['artifact_uri'] != artifactUri ||
         artifact['content_digest'] is! String ||
         artifact['download_url'] is! String ||
         artifact['expires_at'] is! String) {

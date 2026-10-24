@@ -83,7 +83,7 @@ receipt digest. It contains no request or result bytes, content digests, or
 access capabilities. Anyone holding the unguessable URL can read it.
 
 A result larger than the offer's inline bound arrives as `output_artifact`
-instead of `output`. `client.artifact_access(artifact_ref)` mints a 60-second
+instead of `output`. `client.artifact_access(artifact_uri)` mints a 60-second
 download URL for it; verify the bytes against `content_digest`. A failed
 invocation carries `failure.code` and `failure.message`.
 

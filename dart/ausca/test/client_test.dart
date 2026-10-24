@@ -160,7 +160,7 @@ void main() {
         return jsonResponse(200, {
           'status': 'stored',
           'artifact': {
-            'artifact_ref': 'artifact-1',
+            'artifact_uri': 'artifact-1',
             'content_digest':
                 'sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824',
             'media_type': 'text/plain',
@@ -172,7 +172,7 @@ void main() {
       return jsonResponse(200, {
         'status': 'ready',
         'artifact': {
-          'artifact_ref': 'artifact-1',
+          'artifact_uri': 'artifact-1',
           'content_digest':
               'sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824',
           'download_url': 'https://example.com/download',
@@ -183,7 +183,7 @@ void main() {
     final client = AuscaClient(read: read);
     final artifact = await client.commit(bytes, 'text/plain',
         idempotencyKey: 'artifact-purchase-key-0001');
-    expect(artifact['artifact_ref'], 'artifact-1');
+    expect(artifact['artifact_uri'], 'artifact-1');
     final access = await client.access('artifact-1',
         idempotencyKey: 'access-purchase-key-0001');
     expect(access['download_url'], 'https://example.com/download');

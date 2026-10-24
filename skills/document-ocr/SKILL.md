@@ -40,7 +40,7 @@ artifacts are retained for 24 hours and cannot be revived after expiry.
 
 ## Invocation input and limits
 
-Supply one immutable artifact commitment with `artifact_ref`, matching
+Supply one immutable artifact commitment with `artifact_uri`, matching
 `content_digest`, and one supported `media_type`: `application/pdf`,
 `image/jpeg`, `image/png`, or `image/tiff`. The artifact may be at most 10 MiB.
 Document bytes do not belong in the invocation JSON.
@@ -48,7 +48,7 @@ Document bytes do not belong in the invocation JSON.
 ```json
 {
   "artifact": {
-    "artifact_ref": "runx:artifact:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "artifact_uri": "runx:artifact:sha256:1111111111111111111111111111111111111111111111111111111111111111",
     "content_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
     "media_type": "application/pdf"
   }
@@ -61,7 +61,7 @@ invocation state carries its `output_digest`. Results up to 64 KiB arrive
 inline as `output`; a larger result arrives as `output_artifact`, an immutable
 artifact reference with its content digest and size, whose bytes are that
 same document. Mint a 60-second download URL for it with
-`POST /v1/artifacts/{artifact_ref}/access` (`Idempotency-Key` required, **no body**,
+`POST /v1/artifacts/{artifact_uri}/access` (`Idempotency-Key` required, **no body**,
 not even `{}`) and
 verify the downloaded bytes against `content_digest`. Result artifacts are
 retained for 24 hours, so copy or process needed output before that deadline.
@@ -130,5 +130,5 @@ CLI requires `--idempotency-key`; paid MCP requires `ausca_idempotency_key`.
 Save that key before paying and reuse unchanged input on recovery. A new key
 buys again. Read headers case-insensitively with
 `response.headers.get("payment-response")` and honor `Retry-After` on 202.
-Artifact-access MCP arguments contain `artifact_ref` and `idempotency_key`;
+Artifact-access MCP arguments contain `artifact_uri` and `idempotency_key`;
 they are not an HTTP JSON body.

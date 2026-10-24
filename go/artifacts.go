@@ -18,7 +18,7 @@ import (
 const MaxArtifactBytes = 25 << 20
 
 type ArtifactCommitment struct {
-	ArtifactRef   string `json:"artifact_ref"`
+	ArtifactURI   string `json:"artifact_uri"`
 	ContentDigest string `json:"content_digest"`
 	MediaType     string `json:"media_type"`
 }
@@ -81,7 +81,7 @@ func (c *Client) Commit(ctx context.Context, data []byte, mediaType, key string)
 		return ArtifactCommitment{}, fmt.Errorf("artifact ingress answered %d; reuse key %s", response.StatusCode, key)
 	}
 	got := result.Artifact
-	if result.Status != "stored" || got.ArtifactRef == "" || len(got.ArtifactRef) > 512 ||
+	if result.Status != "stored" || got.ArtifactURI == "" || len(got.ArtifactURI) > 512 ||
 		got.ContentDigest != contentDigest || got.MediaType != mediaType || got.SizeBytes != int64(len(data)) || got.CreatedAt == "" {
 		return ArtifactCommitment{}, fmt.Errorf("artifact ingress returned mismatched evidence; reuse key %s", key)
 	}
@@ -89,9 +89,9 @@ func (c *Client) Commit(ctx context.Context, data []byte, mediaType, key string)
 }
 
 // Access mints short-lived download access. HTTP carries no request body;
-// artifact_ref is the path parameter and the identity is a request header.
-func (c *Client) Access(ctx context.Context, artifactRef, key string) (ArtifactAccess, error) {
-	if artifactRef == "" || len(artifactRef) > 512 {
+// artifact_uri is the path parameter and the identity is a request header.
+func (c *Client) Access(ctx context.Context, artifactURI, key string) (ArtifactAccess, error) {
+	if artifactURI == "" || len(artifactURI) > 512 {
 		return ArtifactAccess{}, errors.New("invalid artifact reference")
 	}
 	if key == "" {
@@ -105,7 +105,7 @@ func (c *Client) Access(ctx context.Context, artifactRef, key string) (ArtifactA
 		return ArtifactAccess{}, err
 	}
 	header := http.Header{"Idempotency-Key": []string{key}}
-	response, err := c.request(ctx, c.reader, http.MethodPost, "/v1/artifacts/"+url.PathEscape(artifactRef)+"/access", nil, header)
+	response, err := c.request(ctx, c.reader, http.MethodPost, "/v1/artifacts/"+url.PathEscape(artifactURI)+"/access", nil, header)
 	if err != nil {
 		return ArtifactAccess{}, err
 	}
@@ -118,7 +118,7 @@ func (c *Client) Access(ctx context.Context, artifactRef, key string) (ArtifactA
 		return ArtifactAccess{}, err
 	}
 	if response.StatusCode != http.StatusOK || result.Status != "ready" ||
-		result.Artifact.ArtifactRef != artifactRef || result.Artifact.ContentDigest == "" ||
+		result.Artifact.ArtifactURI != artifactURI || result.Artifact.ContentDigest == "" ||
 		result.Artifact.DownloadURL == "" || result.Artifact.ExpiresAt == "" {
 		return ArtifactAccess{}, fmt.Errorf("artifact access answered %d with invalid evidence", response.StatusCode)
 	}

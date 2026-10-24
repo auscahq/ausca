@@ -315,14 +315,14 @@ class AuscaClient:
             idempotency_key=idempotency_key,
         )
 
-    def artifact_access(self, artifact_ref: str, idempotency_key: str | None = None) -> dict[str, Any]:
+    def artifact_access(self, artifact_uri: str, idempotency_key: str | None = None) -> dict[str, Any]:
         """Mint a 60-second download URL for an artifact this service holds.
 
         Use it for an invocation's ``output_artifact``. Verify downloaded bytes
         against ``content_digest``; the URL itself is not proof of content.
         """
         response = self._http.post(
-            f"{self._origin}/v1/artifacts/{artifact_ref}/access",
+            f"{self._origin}/v1/artifacts/{artifact_uri}/access",
             headers={"Idempotency-Key": idempotency_key or f"ausca-{uuid.uuid4()}"},
         )
         body = response.json() if response.status_code < 400 else None

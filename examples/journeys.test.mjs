@@ -67,7 +67,7 @@ test("inbox journey waits, reads untrusted mail, returns a code, and deletes", a
 
 test("document journey commits once and preserves the same artifact across two purchases", async () => {
   const calls = [];
-  const commitment = { artifactRef: "runx:artifact:sha256:example", contentDigest: "sha256:bytes", mediaType: "application/pdf" };
+  const commitment = { artifactUri: "runx:artifact:sha256:example", contentDigest: "sha256:bytes", mediaType: "application/pdf" };
   const result = await extractAndAnalyzeDocument({
     client: { commit: async () => commitment }, bytes: new Uint8Array([1]), mediaType: "application/pdf",
     artifactKey: "document-upload-0001", ocrPurchaseKey: "document-ocr-0001",
@@ -81,7 +81,7 @@ test("document journey commits once and preserves the same artifact across two p
 
 test("transcription journey returns provider-timed segments", async () => {
   const result = await transcribeWithTimings({
-    client: { commit: async () => ({ artifactRef: "runx:artifact:sha256:audio", contentDigest: "sha256:audio", mediaType: "audio/mpeg" }) },
+    client: { commit: async () => ({ artifactUri: "runx:artifact:sha256:audio", contentDigest: "sha256:audio", mediaType: "audio/mpeg" }) },
     bytes: new Uint8Array([1]), mediaType: "audio/mpeg", mediaFormat: "mp3", languageCode: "en-AU",
     artifactKey: "audio-upload-0001", purchaseKey: "audio-purchase-0001",
     purchaseImpl: async () => ({

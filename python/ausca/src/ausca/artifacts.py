@@ -27,7 +27,7 @@ class ArtifactError(Exception):
 class ArtifactCommitment:
     """The immutable input commitment an artifact-backed offer requires."""
 
-    artifact_ref: str
+    artifact_uri: str
     content_digest: str
     media_type: str
 
@@ -101,17 +101,17 @@ class AuscaArtifactStore:
             raise ArtifactError("artifact ingress returned malformed evidence")
         evidence = result["artifact"]
         if not isinstance(evidence, dict) or set(evidence) != {
-            "artifact_ref", "content_digest", "created_at", "media_type", "size_bytes"
+            "artifact_uri", "content_digest", "created_at", "media_type", "size_bytes"
         }:
             raise ArtifactError("artifact ingress returned malformed evidence")
         # The service mints its own storage identity, so the reference is the
         # one field the caller cannot derive. Everything the local bytes prove
         # is checked against them; the minted reference is an opaque token.
-        artifact_ref = evidence["artifact_ref"]
+        artifact_uri = evidence["artifact_uri"]
         if (
-            not isinstance(artifact_ref, str)
-            or not artifact_ref
-            or len(artifact_ref) > 512
+            not isinstance(artifact_uri, str)
+            or not artifact_uri
+            or len(artifact_uri) > 512
             or evidence["content_digest"] != content_digest
             or evidence["media_type"] != media_type
             or evidence["size_bytes"] != len(data)
@@ -119,5 +119,5 @@ class AuscaArtifactStore:
         ):
             raise ArtifactError("artifact ingress returned mismatched evidence")
         return ArtifactCommitment(
-            artifact_ref=artifact_ref, content_digest=content_digest, media_type=media_type
+            artifact_uri=artifact_uri, content_digest=content_digest, media_type=media_type
         )

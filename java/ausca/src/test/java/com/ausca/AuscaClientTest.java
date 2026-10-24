@@ -88,14 +88,14 @@ final class AuscaClientTest {
     @Test void artifactEvidenceAndBodylessAccess() throws Exception {
         var read = new Stub(request -> request.uri().getPath().equals("/v1/artifacts")
                 ? response(200, """
-                    {"status":"stored","artifact":{"artifact_ref":"artifact-1","content_digest":"sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824","media_type":"text/plain","size_bytes":5,"created_at":"2026-10-08T00:00:00Z"}}
+                    {"status":"stored","artifact":{"artifact_uri":"artifact-1","content_digest":"sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824","media_type":"text/plain","size_bytes":5,"created_at":"2026-10-08T00:00:00Z"}}
                     """)
                 : response(200, """
-                    {"status":"ready","artifact":{"artifact_ref":"artifact-1","content_digest":"sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824","download_url":"https://example.com/download","expires_at":"2026-10-08T01:00:00Z"}}
+                    {"status":"ready","artifact":{"artifact_uri":"artifact-1","content_digest":"sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824","download_url":"https://example.com/download","expires_at":"2026-10-08T01:00:00Z"}}
                     """));
         var client = new AuscaClient(AuscaClient.ORIGIN, read, null);
         var commitment = client.commit("hello".getBytes(StandardCharsets.UTF_8), "text/plain", "artifact-purchase-key-0001");
-        assertEquals("artifact-1", commitment.path("artifact_ref").asText());
+        assertEquals("artifact-1", commitment.path("artifact_uri").asText());
         var access = client.access("artifact-1", "access-purchase-key-0001");
         assertEquals("https://example.com/download", access.path("download_url").asText());
         assertNull(read.requests.getLast().body());

@@ -375,9 +375,9 @@ export class AuscaClient {
    * as an invocation's `output_artifact`. Verify downloaded bytes against
    * `contentDigest`; the URL itself is not proof of content.
    */
-  async artifactAccess(artifactRef: string, idempotencyKey?: string): Promise<ArtifactAccess> {
+  async artifactAccess(artifactUri: string, idempotencyKey?: string): Promise<ArtifactAccess> {
     const response = await this.baseFetch(
-      `${this.origin}/v1/artifacts/${encodeURIComponent(artifactRef)}/access`,
+      `${this.origin}/v1/artifacts/${encodeURIComponent(artifactUri)}/access`,
       {
         method: "POST",
         headers: { "Idempotency-Key": idempotencyKey ?? `ausca-${crypto.randomUUID()}` },
@@ -391,7 +391,7 @@ export class AuscaClient {
     }
     const artifact = body.artifact;
     return {
-      artifactRef: artifact.artifact_ref as string,
+      artifactUri: artifact.artifact_uri as string,
       contentDigest: artifact.content_digest as string,
       mediaType: artifact.media_type as string,
       sizeBytes: artifact.size_bytes as number,

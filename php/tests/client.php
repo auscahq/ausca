@@ -88,20 +88,20 @@ $uploads = new FakeTransport(function (Request $request): Response {
         check($body['data_base64'] === 'dGVzdCBieXRlcw==', 'Wrong upload bytes');
         check($body['idempotency_key'] === 'artifact-upload-0001', 'Upload key changed');
         return new Response(200, json_encode(['status' => 'stored', 'artifact' => [
-            'artifact_ref' => 'art_1', 'content_digest' => $body['content_digest'],
+            'artifact_uri' => 'art_1', 'content_digest' => $body['content_digest'],
             'media_type' => 'text/plain', 'size_bytes' => 10, 'created_at' => 'now',
         ]]));
     }
     if (str_ends_with($request->url, '/v1/artifacts/art_1/access')) {
         check($request->body === null, 'Access carried a body');
         check($request->headers['Idempotency-Key'] === 'artifact-access-0001', 'Access key changed');
-        return new Response(200, '{"status":"ready","artifact":{"artifact_ref":"art_1","content_digest":"sha256:test","media_type":"text/plain","size_bytes":10,"created_at":"now","download_url":"https://example.com/download","expires_at":"later"}}');
+        return new Response(200, '{"status":"ready","artifact":{"artifact_uri":"art_1","content_digest":"sha256:test","media_type":"text/plain","size_bytes":10,"created_at":"now","download_url":"https://example.com/download","expires_at":"later"}}');
     }
     throw new RuntimeException('Unexpected artifact route');
 });
 $artifacts = new Client(null, 'https://example.com', $uploads);
 $commitment = $artifacts->commit('test bytes', 'text/plain', 'artifact-upload-0001');
-check($commitment['artifact_ref'] === 'art_1', 'Artifact commitment missing');
+check($commitment['artifact_uri'] === 'art_1', 'Artifact commitment missing');
 check($artifacts->access('art_1', 'artifact-access-0001')['download_url'] === 'https://example.com/download', 'Access missing');
 
 if (getenv('AUSCA_LIVE_TEST') === '1') {

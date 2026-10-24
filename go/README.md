@@ -42,7 +42,7 @@ you have an invocation ID. `Probe` returns an ordinary `*http.Response`; the
 caller must close its body.
 
 `Commit` uses Ausca's keyless artifact ingress. Its returned commitment is
-the `artifact_ref`, `content_digest`, and `media_type` input for document and
+the `artifact_uri`, `content_digest`, and `media_type` input for document and
 media offers. The 25 MiB client ceiling is not an offer limit; consult the
 live catalog. `Access` mints a short-lived download URL for a result artifact
 without an HTTP request body. Verify downloaded bytes against the commitment.

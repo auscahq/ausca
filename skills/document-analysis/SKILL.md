@@ -39,7 +39,7 @@ artifacts are retained for 24 hours and cannot be revived after expiry.
 
 ## Invocation input and limits
 
-Supply one immutable artifact commitment with `artifact_ref`, matching
+Supply one immutable artifact commitment with `artifact_uri`, matching
 `content_digest`, and one supported `media_type`: `application/pdf`,
 `image/jpeg`, `image/png`, or `image/tiff`. Select one to four unique
 `feature_types` from `FORMS`, `TABLES`, `SIGNATURES`, and `LAYOUT`. The artifact
@@ -48,7 +48,7 @@ may be at most 10 MiB; document bytes do not belong in invocation JSON.
 ```json
 {
   "artifact": {
-    "artifact_ref": "runx:artifact:sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "artifact_uri": "runx:artifact:sha256:4444444444444444444444444444444444444444444444444444444444444444",
     "content_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
     "media_type": "application/pdf"
   },
@@ -72,7 +72,7 @@ This is a structural extraction graph, not inferred business meaning. A manifest
 up to 64 KiB arrives inline as `output`; a larger one arrives as
 `output_artifact`, an immutable artifact reference with its content digest and
 size. Mint a 60-second download URL for any page or result artifact with
-`POST /v1/artifacts/{artifact_ref}/access` (`Idempotency-Key` required, **no body**,
+`POST /v1/artifacts/{artifact_uri}/access` (`Idempotency-Key` required, **no body**,
 not even `{}`) and
 verify the downloaded bytes against `content_digest`. Result artifacts are
 retained for 24 hours. Retrieve every page needed by downstream work and
@@ -145,5 +145,5 @@ Save a unique purchase key before calling: CLI requires `--idempotency-key`,
 paid MCP requires `ausca_idempotency_key`. Recover with unchanged input and
 that key, not a new purchase. HTTP header names are case-insensitive; use
 `response.headers.get("payment-response")`. Honor `Retry-After` on HTTP 202.
-Artifact-access MCP arguments contain `artifact_ref` and `idempotency_key`;
+Artifact-access MCP arguments contain `artifact_uri` and `idempotency_key`;
 they are **not** a JSON body for the bodyless HTTP route.
