@@ -10,6 +10,10 @@
     "verify:metadata": "node scripts/verify-metadata.mjs",
     "sync:skills": "node scripts/sync-skills.mjs",
     "verify:skills": "node scripts/sync-skills.mjs --verify",
-    "verify:wire": "node scripts/verify-wire-authority.mjs"
+    "verify:wire": "node scripts/verify-wire-authority.mjs",
+    "audit": "audit-ci --config audit-ci.jsonc"
+  },
+  "devDependencies": {
+    "audit-ci": "7.1.0"
   }
 }

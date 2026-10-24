@@ -77,7 +77,7 @@ jobs:
           coverage: none
 
       - name: Verify TypeScript packages
-        run: npm ci && npm run build && npm test && npm run verify:wire && npm audit --audit-level=high
+        run: npm ci && npm run build && npm test && npm run verify:wire && npm run audit
 
       - name: Verify Python packages
         run: |

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://github.com/IBM/audit-ci/raw/main/docs/schema.json",
+  "high": true,
+  "allowlist": [
+    {
+      "GHSA-mrhx-c7xc-m3w5": {
+        "active": true,
+        "expiry": "2026-11-08T00:00:00.000Z",
+        "notes": "2026-10-25 cutover decision: use the latest supported x402 dependencies without blocking release on their Zod 3 dependency. x402 2.28.0 requires Zod ^3.24.2; 3.25.76 is the latest 3.x release and has no published fix. Zod 4 is incompatible with upstream v1 schemas. Remove when upstream supports a patched Zod; no other advisory is accepted."
+      }
+    }
+  ]
+}
