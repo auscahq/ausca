@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageId>Ausca</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Authors>Ausca</Authors>
     <Description>Rail-neutral .NET buyer client for Ausca's live pay-per-call agent services.</Description>
     <PackageTags>ausca;x402;agents;mcp;payments</PackageTags>

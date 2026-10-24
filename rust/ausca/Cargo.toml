@@ -1,6 +1,6 @@
 [package]
 name = "ausca"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.89"
 description = "Rail-neutral buyer client for Ausca's live pay-per-call catalog"

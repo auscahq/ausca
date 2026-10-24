@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |spec|
   spec.name = "ausca"
-  spec.version = "0.2.0"
+  spec.version = "0.2.1"
   spec.authors = ["Ausca"]
   spec.summary = "Rail-neutral client for Ausca's live pay-per-call catalog"
   spec.description = "Resolve active offers, bind paid invocations, recover uncertain calls, and handle artifacts without embedding payment credentials."
