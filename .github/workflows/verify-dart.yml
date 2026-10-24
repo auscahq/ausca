@@ -2,6 +2,7 @@ name: verify-dart
 
 on:
   push:
+    branches: [main]
     paths:
       - dart/ausca/**
       - .github/workflows/verify-dart.yml

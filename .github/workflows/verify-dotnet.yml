@@ -2,6 +2,7 @@ name: verify-dotnet
 
 on:
   push:
+    branches: [main]
     paths:
       - dotnet/**
       - .github/workflows/verify-dotnet.yml
