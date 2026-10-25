@@ -1,0 +1,100 @@
+name: Publish npm package
+
+# A tag npm/<dir>/vX.Y.Z publishes packages/<dir> at that version, for example
+# npm/sdk/v0.2.4 publishes @ausca/sdk 0.2.4. Each package trusts this workflow
+# through npm trusted publishing, so no npm token is stored here.
+
+on:
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: 'Verified versions: JSON array of name, version and integrity'
+        required: true
+        type: string
+  push:
+    tags:
+      - 'npm/*/v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: Resolve the tagged package
+        id: package
+        run: |
+          rest="${GITHUB_REF_NAME#npm/}"
+          dir="${rest%%/*}"
+          version="${rest#*/v}"
+          case "$dir" in
+            ''|*[!a-z0-9-]*) echo "invalid package directory in $GITHUB_REF_NAME" >&2; exit 1 ;;
+          esac
+          manifest="packages/$dir/package.json"
+          if [ ! -f "$manifest" ] || [ "$(node -p "require('./$manifest').private === true")" = true ]; then
+            echo "packages/$dir is not a published package" >&2
+            exit 1
+          fi
+          if [ "$(node -p "require('./$manifest').version")" != "$version" ]; then
+            echo "tag $GITHUB_REF_NAME does not match $manifest" >&2
+            exit 1
+          fi
+          echo "dir=packages/$dir" >> "$GITHUB_OUTPUT"
+
+      - name: Verify TypeScript packages
+        run: npm ci && npm run build && npm test && npm run verify:wire && npm audit --audit-level=high
+
+      - name: Publish verified package
+        working-directory: ${{ steps.package.outputs.dir }}
+        run: |
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "$name@$version is already on npm"
+            exit 0
+          fi
+          npm publish --access public
+
+  promote:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 26
+
+      - name: Promote the verified immutable packages
+        env:
+          NPM_PROMOTION_PLAN: ${{ inputs.packages }}
+        run: node scripts/promote-npm.mjs
