@@ -94,6 +94,9 @@ jobs:
         with:
           node-version: 26
 
+      - name: Install npm with OIDC dist-tag support
+        run: npm install --global npm@12.2.1
+
       - name: Promote the verified immutable packages
         env:
           NPM_PROMOTION_PLAN: ${{ inputs.packages }}
