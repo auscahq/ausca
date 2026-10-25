@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
+import { setTimeout } from "node:timers/promises";
 
 // Promotion changes tags only. Versions and package bytes have already been
 // published and independently verified; the caller supplies their commitments.
@@ -26,6 +27,20 @@ async function readRegistry(path) {
   return await response.json();
 }
 
+async function verifyLatest(entry) {
+  // A successful tag write can reach npm's read replicas later. Retry reads
+  // only; repeating the write would obscure an ambiguous provider outcome.
+  const deadline = Date.now() + 120_000;
+  let delay = 1_000;
+  for (;;) {
+    const tags = await readRegistry(`-/package/${encodeURIComponent(entry.name)}/dist-tags`);
+    if (tags.latest === entry.version) return;
+    assert(Date.now() < deadline, `Latest tag for ${entry.name} remained ${tags.latest}; expected ${entry.version}.`);
+    await setTimeout(Math.min(delay, deadline - Date.now()));
+    delay = Math.min(delay * 2, 10_000);
+  }
+}
+
 // Admit the entire set before the first tag write. The SDK goes first because
 // the front door consumes it. No version is repeated in this release script.
 const admitted = [];
@@ -48,8 +63,7 @@ if (!checkOnly) {
     if (entry.previous_latest !== entry.version) {
       execFileSync("npm", ["dist-tag", "add", `${entry.name}@${entry.version}`, "latest", "--registry=https://registry.npmjs.org"], { stdio: "inherit" });
     }
-    const tags = await readRegistry(`-/package/${encodeURIComponent(entry.name)}/dist-tags`);
-    assert.equal(tags.latest, entry.version, "Latest tag did not read back as the admitted version.");
+    await verifyLatest(entry);
   }
 }
 console.log(JSON.stringify({ status: checkOnly ? "ready" : "verified", packages: admitted }));
