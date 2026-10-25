@@ -57,6 +57,15 @@ jobs:
           gem build ausca.gemspec
           gem specification "ausca-${version}.gem" name version files
 
+      - name: Import the packed gem with only its declared dependencies
+        working-directory: ruby/ausca
+        run: |
+          gem install "./ausca-${RELEASE_TAG#ruby/v}.gem" --install-dir "$RUNNER_TEMP/ausca-gems" --no-document
+          GEM_HOME="$RUNNER_TEMP/ausca-gems" GEM_PATH="$RUNNER_TEMP/ausca-gems" ruby -r ausca -e '
+            abort "source checkout masked the packed gem" unless Gem.loaded_specs.fetch("ausca").full_gem_path.start_with?(ENV.fetch("GEM_HOME") + "/")
+            puts Ausca::Client.name
+          '
+
       - name: Exchange GitHub identity for a scoped RubyGems token
         uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
 
