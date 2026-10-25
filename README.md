@@ -149,13 +149,13 @@ is not a separate service or source of pricing truth.
 | [`ausca`](packages/ausca) | [npm](https://www.npmjs.com/package/ausca) | The front door: library, CLI, and local MCP server |
 | [`@ausca/sdk`](packages/sdk) | [npm](https://www.npmjs.com/package/@ausca/sdk) | The typed engine: client, payment authorities, artifact store |
 | [`ausca`](python/ausca) | [PyPI](https://pypi.org/project/ausca/) | Python client and CLI with the same ports |
-| [`ausca`](go) | [Go module](https://pkg.go.dev/github.com/auscahq/ausca/go@v0.1.1) | Standard-library buyer client; payment-capable HTTP client port |
+| [`ausca`](go) | [Go module](https://pkg.go.dev/github.com/auscahq/ausca/go) | Standard-library buyer client; payment-capable HTTP client port |
 | [`ausca`](rust/ausca) | [crates.io](https://crates.io/crates/ausca) | Rust buyer client; rail-neutral transport port |
 | [`ausca`](ruby/ausca) | [RubyGems](https://rubygems.org/gems/ausca) | Ruby buyer client; rail-neutral transport port |
 | [`auscahq/ausca`](php) | Packagist submission pending | PHP buyer client; rail-neutral transport port |
-| [`Ausca`](swift) | [Swift Package Manager](https://github.com/auscahq/ausca/releases/tag/v0.1.0); [index submission](https://github.com/SwiftPackageIndex/PackageList/issues/15591) pending | Swift buyer client; rail-neutral transport port |
+| [`Ausca`](swift) | [Swift Package Manager](https://github.com/auscahq/ausca/tags); [index submission](https://github.com/SwiftPackageIndex/PackageList/issues/15591) pending | Swift buyer client; rail-neutral transport port |
 | [`ausca`](dart/ausca) | [pub.dev](https://pub.dev/packages/ausca) | Dart buyer client; rail-neutral transport port |
-| [`Ausca`](dotnet/Ausca) | [NuGet](https://www.nuget.org/packages/Ausca/0.1.0) | .NET buyer client; rail-neutral transport port |
+| [`Ausca`](dotnet/Ausca) | [NuGet](https://www.nuget.org/packages/Ausca) | .NET buyer client; rail-neutral transport port |
 | [`com.ausca:ausca`](java/ausca) | Maven Central publication pending | JVM buyer client; rail-neutral transport port |
 | [`@ausca/ai-sdk`](packages/ai-sdk) | [npm](https://www.npmjs.com/package/@ausca/ai-sdk) | Vercel AI SDK tools for any x402 v2 resource |
 | [`langchain-ausca`](packages/langchain-ausca) | [npm](https://www.npmjs.com/package/langchain-ausca) | LangChain tools for any x402 v2 resource |

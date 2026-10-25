@@ -6,7 +6,7 @@ routes, or a payment rail. It resolves the current binding from
 [ausca.com/catalog.json](https://ausca.com/catalog.json).
 
 The module path is `github.com/auscahq/ausca/go`. Install the published
-module with `go get github.com/auscahq/ausca/go@v0.1.1`.
+module with `go get github.com/auscahq/ausca/go@latest`.
 
 ```go
 client := ausca.NewClient(paymentHTTPClient)
