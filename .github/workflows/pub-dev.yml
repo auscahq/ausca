@@ -1,0 +1,38 @@
+name: Publish Dart package
+
+on:
+  push:
+    tags: ['dart/v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pub-dev-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    environment: pub.dev
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: dart/ausca
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+      - name: Check release identity
+        run: |
+          version=$(sed -n 's/^version: //p' pubspec.yaml)
+          test "$GITHUB_REF_NAME" = "dart/v$version"
+      - run: dart pub get
+      - run: dart format --output=none --set-exit-if-changed lib test
+      - run: dart analyze
+      - run: dart test
+      - run: dart pub publish --dry-run
+      - run: dart pub publish --force

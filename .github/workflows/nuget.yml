@@ -1,6 +1,12 @@
 name: Publish NuGet
 
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing release tag version
+        required: true
+        type: string
   push:
     tags:
       - dotnet/v*
@@ -8,11 +14,17 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: nuget-${{ github.event_name == 'workflow_dispatch' && format('dotnet/v{0}', inputs.version) || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: nuget
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('dotnet/v{0}', inputs.version) || github.ref_name }}
     permissions:
       contents: read
       id-token: write
@@ -20,13 +32,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/dotnet/v{0}', inputs.version) || github.ref }}
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '8.0.x'
       - name: Check release version
         shell: bash
         run: |
-          release_version="${GITHUB_REF_NAME#dotnet/v}"
+          release_version="${RELEASE_TAG#dotnet/v}"
           project_version=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' dotnet/Ausca/Ausca.csproj)
           test "$release_version" = "$project_version"
       - run: dotnet run --project dotnet/Ausca.Tests/Ausca.Tests.csproj -c Release
@@ -37,4 +50,4 @@ jobs:
           user: auscaster
       - name: Publish package
         shell: bash
-        run: dotnet nuget push "artifacts/Ausca.${GITHUB_REF_NAME#dotnet/v}.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json
+        run: dotnet nuget push "artifacts/Ausca.${RELEASE_TAG#dotnet/v}.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json

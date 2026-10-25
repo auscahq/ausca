@@ -1,6 +1,12 @@
 name: Publish RubyGem
 
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing release tag version
+        required: true
+        type: string
   push:
     tags:
       - 'ruby/v*'
@@ -8,10 +14,16 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: rubygems-${{ github.event_name == 'workflow_dispatch' && format('ruby/v{0}', inputs.version) || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-24.04
     environment: rubygems
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('ruby/v{0}', inputs.version) || github.ref_name }}
     permissions:
       contents: read
       id-token: write
@@ -20,6 +32,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/ruby/v{0}', inputs.version) || github.ref }}
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
@@ -40,7 +53,7 @@ jobs:
         run: |
           ruby -Ilib test/client_test.rb
           version="$(ruby -rrubygems -e 'print Gem::Specification.load("ausca.gemspec").version')"
-          test "${GITHUB_REF_NAME}" = "ruby/v${version}"
+          test "${RELEASE_TAG}" = "ruby/v${version}"
           gem build ausca.gemspec
           gem specification "ausca-${version}.gem" name version files
 
@@ -49,4 +62,4 @@ jobs:
 
       - name: Publish verified gem
         working-directory: ruby/ausca
-        run: gem push "ausca-${GITHUB_REF_NAME#ruby/v}.gem"
+        run: gem push "ausca-${RELEASE_TAG#ruby/v}.gem"

@@ -1,0 +1,53 @@
+name: Publish Rust crate
+
+on:
+  push:
+    tags: ['rust/v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing release tag version
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crates-${{ github.event_name == 'workflow_dispatch' && format('rust/v{0}', inputs.version) || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    environment: crates-io
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('rust/v{0}', inputs.version) || github.ref_name }}
+    defaults:
+      run:
+        working-directory: rust/ausca
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/rust/v{0}', inputs.version) || github.ref }}
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          components: clippy
+      - name: Check release identity
+        run: |
+          version=$(cargo metadata --locked --no-deps --format-version=1 | jq -er '.packages[] | select(.name == "ausca") | .version')
+          test "$RELEASE_TAG" = "rust/v$version"
+      - run: cargo test --locked
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo publish --dry-run --locked
+      - name: Authenticate the repository publisher
+        id: auth
+        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1
+      - name: Publish the verified crate
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish --locked

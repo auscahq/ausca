@@ -176,3 +176,26 @@ buyer side. `server.json` carries the official MCP registry identity
 ## License
 
 MIT
+
+## Publishing
+
+Release workflows use repository-bound trusted publishing rather than personal
+registry logins or stored publisher tokens. Each registry binding names
+`auscahq/ausca`, its workflow filename and the matching GitHub environment:
+
+| Registry | Workflow | Environment | Tag |
+| --- | --- | --- | --- |
+| npm | `npm.yml` | `npm` | `npm/<directory>/v<version>` |
+| PyPI | `pypi.yml` | `pypi` | `python/<directory>/v<version>` |
+| crates.io | `crates.yml` | `crates-io` | `rust/v<version>` |
+| RubyGems | `rubygems.yml` | `rubygems` | `ruby/v<version>` |
+| NuGet | `nuget.yml` | `nuget` | `dotnet/v<version>` |
+| pub.dev | `pub-dev.yml` | `pub.dev` | `dart/v<version>` |
+
+A workflow file alone does not establish registry trust. Configure and verify
+the matching publisher before its first release. New npm bindings must become
+valid within two days; a pending or expired binding is not ready. Routine
+releases must not need a browser approval. Push release tags individually:
+GitHub suppresses tag events when more than three tags are pushed together.
+The Ruby, NuGet, Rust and Python workflows can also resume from an existing
+immutable tag by explicit dispatch; never move a published release tag.

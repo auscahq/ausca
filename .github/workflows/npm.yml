@@ -63,7 +63,7 @@ jobs:
           echo "dir=packages/$dir" >> "$GITHUB_OUTPUT"
 
       - name: Verify TypeScript packages
-        run: npm ci && npm run build && npm test && npm run verify:wire && npm audit --audit-level=high
+        run: npm ci && npm run build && npm test && npm run verify:wire && npm run audit
 
       - name: Publish verified package
         working-directory: ${{ steps.package.outputs.dir }}

@@ -1,0 +1,66 @@
+name: Publish Python package
+
+on:
+  push:
+    tags: ['python/*/v*']
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package directory
+        required: true
+        type: choice
+        options: [ausca, langchain-ausca, llama-index-tools-ausca]
+      version:
+        description: Existing release tag version
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pypi-${{ github.event_name == 'workflow_dispatch' && format('python/{0}/v{1}', inputs.package, inputs.version) || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('python/{0}/v{1}', inputs.package, inputs.version) || github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/python/{0}/v{1}', inputs.package, inputs.version) || github.ref }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.14'
+      - name: Check release identity
+        id: package
+        run: |
+          rest="${RELEASE_TAG#python/}"
+          directory="${rest%%/*}"
+          version="${rest#*/v}"
+          case "$directory" in
+            ausca|langchain-ausca|llama-index-tools-ausca) ;;
+            *) echo 'Unknown Python package' >&2; exit 1 ;;
+          esac
+          declared=$(python -c 'import pathlib,sys,tomllib; print(tomllib.loads(pathlib.Path(sys.argv[1]).read_text())["project"]["version"])' "python/$directory/pyproject.toml")
+          test "$version" = "$declared"
+          echo "directory=python/$directory" >> "$GITHUB_OUTPUT"
+      - name: Verify and build the selected package
+        env:
+          PACKAGE_DIRECTORY: ${{ steps.package.outputs.directory }}
+        run: |
+          python -m pip install --disable-pip-version-check build pytest ./python/ausca
+          if [ "$PACKAGE_DIRECTORY" != "python/ausca" ]; then
+            python -m pip install --disable-pip-version-check "./$PACKAGE_DIRECTORY"
+          fi
+          python -m pytest "$PACKAGE_DIRECTORY/tests"
+          python -m build --outdir dist "$PACKAGE_DIRECTORY"
+      - name: Publish with the repository identity
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
